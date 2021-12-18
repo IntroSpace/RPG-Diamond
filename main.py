@@ -1,62 +1,20 @@
 import os
 import sys
-from itertools import product
+import random
 
 import pygame
 import pygame_menu
 
-colors = {0: pygame.Color('black'),
-          1: pygame.Color('white'),
-          2: pygame.Color('red')}
-
 pygame.init()
 surface = pygame.display.set_mode((1920, 1080))
 pygame.key.set_repeat(1, 20)
-
-
-class Board:
-    # создание поля
-    def __init__(self, width, height):
-        self.width = width
-        self.height = height
-        self.board = [[0] * width for _ in range(height)]
-        # значения по умолчанию
-        self.left = 10
-        self.top = 10
-        self.cell_size = 30
-
-    # настройка внешнего вида
-    def set_view(self, left, top, cell_size):
-        self.left = left
-        self.top = top
-        self.cell_size = cell_size
-
-    def render(self, screen):
-        for x, y in product(range(self.width), range(self.height)):
-            pygame.draw.rect(screen,
-                             colors[1],
-                             (self.left + x * self.cell_size, self.top + y * self.cell_size,
-                              self.cell_size, self.cell_size),
-                             1)
-            if self.board[y][x] == 0:
-                surface.blit(grass_image, (self.left + x * self.cell_size, self.top + y * self.cell_size))
-
-    def get_cell(self, mouse_pos):
-        x, y = mouse_pos
-
-        cell = (x - self.left) // self.cell_size, (y - self.top) // self.cell_size
-        if 0 <= cell[0] < self.width and 0 <= cell[1] < self.height:
-            return cell
-
-    def on_click(self, cell_coords):
-        pass
-
-    def get_click(self, mouse_pos):
-        try:
-            cell = self.get_cell(mouse_pos)
-            self.on_click(cell)
-        except TypeError:
-            return
+ACC = 0.3
+FRIC = -0.10
+COUNT = 0
+vec = pygame.math.Vector2
+FPS = 60
+FPS_CLOCK = pygame.time.Clock()
+pygame.display.set_caption("Game")
 
 
 def load_image(name, colorkey=None):
@@ -75,8 +33,36 @@ def load_image(name, colorkey=None):
     return image
 
 
-image = load_image("creature.png", -1)
-grass_image = pygame.transform.scale(load_image("grass.png"), (40, 40))
+class Background(pygame.sprite.Sprite):
+    def __init__(self):
+        super().__init__()
+        self.bgimage = pygame.transform.scale(load_image('background.png'), (1920, 1080))
+        self.bgY = 0
+        self.bgX = 0
+
+    def render(self):
+        surface.blit(self.bgimage, (self.bgX, self.bgY))
+
+
+class Ground(pygame.sprite.Sprite):
+    def __init__(self):
+        super().__init__()
+        self.image = pygame.transform.scale(load_image("ground.png"), (1920, 600))
+        self.rect = self.image.get_rect()
+        self.rect.y = 480
+
+    def render(self):
+        surface.blit(self.image, (self.rect.x, self.rect.y))
+
+
+class Player(pygame.sprite.Sprite):
+    def __init__(self):
+        super().__init__()
+
+
+class Enemy(pygame.sprite.Sprite):
+    def __init__(self):
+        super().__init__()
 
 
 def set_difficulty(value, difficulty):
@@ -84,11 +70,8 @@ def set_difficulty(value, difficulty):
 
 
 def start_the_game():
-    board = Board(80, 80)
-    fps = 60
-    pos = [0, 0]
-    clock = pygame.time.Clock()
-    board.set_view(0, 0, 40)
+    background = Background()
+    ground = Ground()
     running = True
     while running:
         for event in pygame.event.get():
@@ -97,19 +80,12 @@ def start_the_game():
             if event.type == pygame.MOUSEBUTTONDOWN:
                 pass
             if event.type == pygame.KEYDOWN:
-                if pygame.key.get_pressed()[pygame.K_DOWN]:
-                    pos[1] += 10
-                if pygame.key.get_pressed()[pygame.K_UP]:
-                    pos[1] -= 10
-                if pygame.key.get_pressed()[pygame.K_RIGHT]:
-                    pos[0] += 10
-                if pygame.key.get_pressed()[pygame.K_LEFT]:
-                    pos[0] -= 10
+                pass
         surface.fill((0, 0, 0))
-        board.render(surface)
-        surface.blit(image, pos)
+        background.render()
+        ground.render()
         pygame.display.flip()
-        clock.tick(fps)
+        FPS_CLOCK.tick(FPS)
 
 
 menu = pygame_menu.Menu('Welcome', 1920, 1080,
