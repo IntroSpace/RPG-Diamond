@@ -43,14 +43,13 @@ def load_image(name, colorkey=None):
 
 run_animation_RIGHT = [load_image("Player_Sprite_R.png"), load_image("Player_Sprite2_R.png"),
                        load_image("Player_Sprite3_R.png"), load_image("Player_Sprite4_R.png"),
-                       load_image("Player_Sprite5_R.png"), load_image("Player_Sprite6_R.png"),
-                       load_image("Player_Sprite_R.png")]
+                       load_image("Player_Sprite5_R.png"), load_image("Player_Sprite6_R.png")]
 
 # Анимации для бега влево
 run_animation_LEFT = [load_image("Player_Sprite_L.png"), load_image("Player_Sprite2_L.png"),
                       load_image("Player_Sprite3_L.png"), load_image("Player_Sprite4_L.png"),
-                      load_image("Player_Sprite5_L.png"), load_image("Player_Sprite6_L.png"),
-                      load_image("Player_Sprite_L.png")]
+                      load_image("Player_Sprite5_L.png"), load_image("Player_Sprite6_L.png")]
+
 attack_animation_RIGHT = [load_image("Player_Sprite_R.png"), load_image("Player_Attack_R.png"),
                           load_image("Player_Attack2_R.png"), load_image("Player_Attack2_R.png"),
                           load_image("Player_Attack3_R.png"), load_image("Player_Attack3_R.png"),
@@ -94,8 +93,21 @@ class Tile(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(topleft=(pos[0] * tile_size, pos[1] * tile_size))
 
 
+class Level:
+    @staticmethod
+    def new_level(data):
+        res_player = None
+        for y, row in enumerate(data):
+            for x, tile in enumerate(row):
+                if tile == 'L':
+                    Tile((x, y), other_group)
+                if tile == 'P':
+                    res_player = Player((x, y))
+        return res_player
+
+
 class Player(pygame.sprite.Sprite):
-    def __init__(self):
+    def __init__(self, pos):
         super().__init__()
         self.image = load_image("Player_Sprite_R.png")
         self.rect = self.image.get_rect()
@@ -108,7 +120,7 @@ class Player(pygame.sprite.Sprite):
         self.move_frame = 0
         # Позиция и направление
         self.vx = 0
-        self.pos = vec((340, 240))
+        self.pos = vec((pos[0] * tile_size, pos[1] * tile_size))
         self.vel = vec(0, 0)
         self.acc = vec(0, 0)
         self.direction = "RIGHT"
@@ -116,6 +128,7 @@ class Player(pygame.sprite.Sprite):
 
     def move(self):
         sprite_list = pygame.sprite.spritecollide(self, other_group, False)
+        self.block_right = self.block_left = 0
         if sprite_list:
             for sprite in sprite_list:
                 rect = sprite.rect
@@ -138,13 +151,9 @@ class Player(pygame.sprite.Sprite):
         if self.block_left:
             if self.vel.x < 0 or (self.vel.x == 0 and self.acc.x < 0):
                 self.acc.x = self.vel.x = 0
-            else:
-                self.block_left = 0
         if self.block_right:
             if self.vel.x > 0 or (self.vel.x == 0 and self.acc.x > 0):
                 self.acc.x = self.vel.x = 0
-            else:
-                self.block_right = 0
         self.pos += self.vel + 0.5 * self.acc
         if self.pos.x > WIDTH:
             self.pos.x = 0
@@ -155,28 +164,34 @@ class Player(pygame.sprite.Sprite):
     def update(self):
         if pygame.key.get_pressed()[pygame.K_SPACE]:
             self.jump()
-        if self.move_frame > 6:
+        if self.move_frame > 10:
             self.move_frame = 0
             return
         if not self.jumping and self.running:
             if self.vel.x > 0:
-                self.image = run_animation_RIGHT[self.move_frame]
+                self.image = run_animation_RIGHT[self.move_frame // 2]
                 self.direction = "RIGHT"
             elif self.vel.x == 0:
                 if self.direction == 'RIGHT':
-                    self.image = run_animation_RIGHT[self.move_frame]
+                    self.image = run_animation_RIGHT[self.move_frame // 2]
                 elif self.direction == 'LEFT':
-                    self.image = run_animation_LEFT[self.move_frame]
+                    self.image = run_animation_LEFT[self.move_frame // 2]
             else:
-                self.image = run_animation_LEFT[self.move_frame]
+                self.image = run_animation_LEFT[self.move_frame // 2]
                 self.direction = "LEFT"
             self.move_frame += 1
+        if self.jumping:
+            self.move_frame = 4 * 2
+            if self.vel.x > 0:
+                self.direction = 'RIGHT'
+            if self.vel.x < 0:
+                self.direction = 'LEFT'
         if abs(self.vel.x) < 1 and self.move_frame != 0:
             self.move_frame = 0
             if self.direction == "RIGHT":
-                self.image = run_animation_RIGHT[self.move_frame]
+                self.image = run_animation_RIGHT[self.move_frame // 2]
             elif self.direction == "LEFT":
-                self.image = run_animation_LEFT[self.move_frame]
+                self.image = run_animation_LEFT[self.move_frame // 2]
 
     def attack(self):
         if self.attack_frame > 10:
@@ -213,8 +228,8 @@ class Player(pygame.sprite.Sprite):
         elif self.vel.y < 0:
             if pygame.sprite.spritecollide(player, other_group, False):
                 for sprite in pygame.sprite.spritecollide(player, other_group, False):
-                    if sprite.rect.collidepoint(self.rect.topleft)\
-                            or sprite.rect.collidepoint(self.rect.topright):
+                    if sprite.rect.collidepoint(self.rect.topleft[0] + 5, self.rect.topleft[1])\
+                            or sprite.rect.collidepoint(self.rect.topright[0] - 5, self.rect.topright[1]):
                         self.vel.y *= -1
                         self.acc.y *= -1
 
@@ -228,14 +243,32 @@ def set_difficulty(value, difficulty):
     pass
 
 
+level1 = [
+    'LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL',
+    'L                                  L',
+    'L                                  L',
+    'L                                  L',
+    'L                                  L',
+    'L                                  L',
+    'L                                  L',
+    'L                                  L',
+    'L                                  L',
+    'L    P                             L',
+    'L                         LL       L',
+    'L                 L                L',
+    'L                    LL            L',
+    'L       L     LL                   L',
+    'L     LLL    LLLL        LL  LL    L',
+    'L    LLLL   LLLLLLL     LL     LL  L',
+    'LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL',
+    'LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL',
+    'LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL'
+]
+
+
 background = Background()
-player = Player()
-ground_group = pygame.sprite.Group()
-for y in range(17, 20):
-    for x in range(30):
-        Tile((x, y), other_group)
-Tile((7, 14), other_group)
-Tile((6, 15), other_group)
+player = Level.new_level(level1)
+# ground_group = pygame.sprite.Group()
 
 
 def start_the_game():
