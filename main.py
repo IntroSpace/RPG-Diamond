@@ -14,9 +14,13 @@ COUNT = 0
 vec = pygame.math.Vector2
 FPS = 60
 FPS_CLOCK = pygame.time.Clock()
+WORLD_VEL = 5
+MAX_WORLD_VEL = 5
 pygame.display.set_caption("Game")
 tile_size = HEIGHT // 20
 
+# группа всех спрайтов
+all_sprites = pygame.sprite.Group()
 # группа блоков
 tiles_group = pygame.sprite.Group()
 # группа всех спрайтов, кроме игрока
@@ -65,6 +69,36 @@ attack_animation_LEFT = [load_image("Player_Sprite_L.png"), load_image("Player_A
                          load_image("Player_Sprite_L.png")]
 
 
+class World:
+    def __init__(self, screen_size):
+        self.dx = self.key_dx = 0
+        self.dy = self.key_dy = 0
+        width, height = screen_size
+        self.borders_x = pygame.Rect(((width - height) // 2, 0, height, height))
+
+    def update(self, __player):
+        player_rect = __player.rect
+        if self.key_dx != 0:
+            if __player.vel.x == __player.acc.x == 0:
+                if (10 < __player.rect.x and self.key_dx < 0)\
+                        or (__player.rect.x < WIDTH - (__player.rect.width + 10) and self.key_dx > 0):
+                    self.dx = self.key_dx
+                else:
+                    self.dx = 0
+                self.key_dx = 1e-10 if self.key_dx > 0 else -1e-10
+            else:
+                self.key_dx = 0
+        else:
+            if not self.borders_x.collidepoint(player_rect.topleft)\
+                    and self.borders_x.x > player_rect.x:
+                self.dx = min([self.borders_x.x - player_rect.x, MAX_WORLD_VEL])
+            elif not self.borders_x.collidepoint(player_rect.topright)\
+                    and self.borders_x.topright[0] < player_rect.topright[0]:
+                self.dx = - min([player_rect.topright[0] - self.borders_x.topright[0], MAX_WORLD_VEL])
+            else:
+                self.dx = 0
+
+
 class Background(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()
@@ -78,7 +112,7 @@ class Background(pygame.sprite.Sprite):
 
 class Ground(pygame.sprite.Sprite):
     def __init__(self):
-        super().__init__()
+        super().__init__(all_sprites)
         self.image = pygame.transform.scale(load_image("ground.png"), (1920, 300))
         self.rect = self.image.get_rect()
         self.rect.y = 780
@@ -89,7 +123,7 @@ class Ground(pygame.sprite.Sprite):
 
 class Tile(pygame.sprite.Sprite):
     def __init__(self, name, pos, *groups):
-        super(Tile, self).__init__(tiles_group, *groups)
+        super(Tile, self).__init__(all_sprites, tiles_group, *groups)
         self.image = pygame.transform.scale(load_image(name), (tile_size, tile_size))
         self.rect = self.image.get_rect(topleft=(pos[0] * tile_size, pos[1] * tile_size))
 
@@ -128,7 +162,7 @@ class Level:
 
 class Player(pygame.sprite.Sprite):
     def __init__(self, pos):
-        super().__init__()
+        super().__init__(all_sprites)
         self.image = load_image("Player_Sprite_R.png")
         self.rect = self.image.get_rect()
         # Атака
@@ -166,6 +200,8 @@ class Player(pygame.sprite.Sprite):
             self.acc.x = -ACC
         if pygame.key.get_pressed()[pygame.K_RIGHT]:
             self.acc.x = ACC
+        if abs(self.vel.x) < 0.4:
+            self.vel.x = 0
         self.acc.x += self.vel.x * FRIC
         self.vel += self.acc
         if self.block_left:
@@ -175,11 +211,15 @@ class Player(pygame.sprite.Sprite):
             if self.vel.x > 0 or (self.vel.x == 0 and self.acc.x > 0):
                 self.acc.x = self.vel.x = 0
         self.pos += self.vel + 0.5 * self.acc
-        if self.pos.x > WIDTH:
-            self.pos.x = 0
-        if self.pos.x < 0:
-            self.pos.x = WIDTH
+        # if self.pos.x > WIDTH:
+        #     self.pos.x = 0
+        # if self.pos.x < 0:
+        #     self.pos.x = WIDTH
         self.rect.midbottom = self.pos
+
+    def world_shift(self, dx, dy):
+        self.pos.x += dx
+        self.pos.y += dy
 
     def update(self):
         if pygame.key.get_pressed()[pygame.K_SPACE]:
@@ -258,14 +298,14 @@ class Player(pygame.sprite.Sprite):
 
 class Enemy(pygame.sprite.Sprite):
     def __init__(self, sheet: pygame.Surface, direction: int, velocity: int, x: int, y: int, columns: int, rows: int):
-        super().__init__(enemy_group)
+        super().__init__(all_sprites, enemy_group)
         self.frames = []
         self.direction = direction
         self.cut_sheet(sheet, columns, rows)
         self.columns = columns
         self.cur_frame = 0
         self.image = self.frames[self.cur_frame]
-        self.rect = self.rect.move(x, y)
+        self.rect = self.image.get_rect(topleft=(x, y))
         self.velocity = vec(0, 0)
         self.position = vec(x, y)
         self.velocity.x = velocity
@@ -306,10 +346,10 @@ def load_level_data(filename):
         return Level.new_level(map(str.strip, f.readlines()))
 
 
+world = World((WIDTH, HEIGHT - 100))
 background = Background()
 player = load_level_data('level1')
 skeleton = Enemy(load_image("SkeletonEnemyMove.png"), 0, 3, 100, 100, 12, 1)
-enemy_group.add(skeleton)
 
 
 def start_the_game():
@@ -326,24 +366,32 @@ def start_the_game():
                         player.attack()
                         player.attacking = True
             if event.type == pygame.KEYDOWN:
-                pass
+                if event.key == pygame.K_DELETE:
+                    world.key_dx = WORLD_VEL
+                if event.key == pygame.K_PAGEDOWN:
+                    world.key_dx = - WORLD_VEL
         surface.fill((0, 0, 0))
         player.update()
         if player.attacking:
             player.attack()
         player.move()
         background.render()
-        tiles_group.draw(surface)
-        enemy_group.draw(surface)
         for i in enemy_group:
             i.move()
         enemy_group.update()
+        world.update(player)
+        if world.dx != 0:
+            player.world_shift(world.dx, world.dy)
+            for sprite in all_sprites.sprites():
+                sprite.rect = sprite.rect.move(world.dx, world.dy)
+        tiles_group.draw(surface)
+        enemy_group.draw(surface)
         surface.blit(player.image, player.rect)
         pygame.display.flip()
         FPS_CLOCK.tick(FPS)
 
 
-menu = pygame_menu.Menu('Welcome', 1920, 1080,
+menu = pygame_menu.Menu('Welcome', WIDTH, HEIGHT,
                         theme=pygame_menu.themes.THEME_DARK)
 
 menu.add.text_input('Name: ', default='John Doe')
