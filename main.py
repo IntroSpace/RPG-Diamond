@@ -21,6 +21,8 @@ tile_size = HEIGHT // 20
 tiles_group = pygame.sprite.Group()
 # группа всех спрайтов, кроме игрока
 other_group = pygame.sprite.Group()
+# группа врагов
+enemy_group = pygame.sprite.Group()
 
 
 # Анимации для бега вправо
@@ -239,7 +241,7 @@ class Player(pygame.sprite.Sprite):
             if pygame.sprite.spritecollide(player, other_group, False):
                 sprites = pygame.sprite.spritecollide(player, other_group, False)
                 for sprite in sprites:
-                    if sprite.rect.collidepoint(self.rect.bottomleft[0] + 5, self.rect.bottomleft[1])\
+                    if sprite.rect.collidepoint(self.rect.bottomleft[0] + 5, self.rect.bottomleft[1]) \
                             or sprite.rect.collidepoint(self.rect.bottomright[0] - 5, self.rect.bottomright[1]):
                         self.pos.y = sprite.rect.top + 1
                         self.vel.y = 0
@@ -247,7 +249,7 @@ class Player(pygame.sprite.Sprite):
         elif self.vel.y < 0:
             if pygame.sprite.spritecollide(player, other_group, False):
                 for sprite in pygame.sprite.spritecollide(player, other_group, False):
-                    if sprite.rect.collidepoint(self.rect.topleft[0] + 5, self.rect.topleft[1])\
+                    if sprite.rect.collidepoint(self.rect.topleft[0] + 5, self.rect.topleft[1]) \
                             or sprite.rect.collidepoint(self.rect.topright[0] - 5, self.rect.topright[1]):
                         self.vel.y *= -1
                         self.acc.y *= -1
@@ -255,8 +257,44 @@ class Player(pygame.sprite.Sprite):
 
 
 class Enemy(pygame.sprite.Sprite):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, sheet: pygame.Surface, direction: int, velocity: int, x: int, y: int, columns: int, rows: int):
+        super().__init__(enemy_group)
+        self.frames = []
+        self.direction = direction
+        self.cut_sheet(sheet, columns, rows)
+        self.columns = columns
+        self.cur_frame = 0
+        self.image = self.frames[self.cur_frame]
+        self.rect = self.rect.move(x, y)
+        self.velocity = vec(0, 0)
+        self.position = vec(x, y)
+        self.velocity.x = velocity
+        self.count = 0
+
+    def cut_sheet(self, sheet, columns, rows):
+        self.rect = pygame.Rect(0, 0, sheet.get_width() // columns,
+                                sheet.get_height() // rows)
+        for j in range(rows):
+            for i in range(columns):
+                frame_location = (self.rect.w * i, self.rect.h * j)
+                self.frames.append(sheet.subsurface(pygame.Rect(
+                    frame_location, self.rect.size)))
+
+    def update(self):
+        # Анимация врага
+        if self.count % 5 == 0:
+            self.cur_frame = (self.cur_frame + 1) % len(self.frames)
+            self.image = self.frames[self.cur_frame]
+        self.count += 1
+
+    def move(self):
+        # ИИ врага
+        if self.count % 5 == 0:
+            if self.direction == 0:
+                self.position.x += self.velocity.x
+            if self.direction == 1:
+                self.position.x -= self.velocity.x
+        self.rect.center = self.position
 
 
 def set_difficulty(value, difficulty):
@@ -270,6 +308,8 @@ def load_level_data(filename):
 
 background = Background()
 player = load_level_data('level1')
+skeleton = Enemy(load_image("SkeletonEnemyMove.png"), 0, 3, 100, 100, 12, 1)
+enemy_group.add(skeleton)
 
 
 def start_the_game():
@@ -286,10 +326,7 @@ def start_the_game():
                         player.attack()
                         player.attacking = True
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_RETURN:
-                    if not player.attacking:
-                        player.attack()
-                        player.attacking = True
+                pass
         surface.fill((0, 0, 0))
         player.update()
         if player.attacking:
@@ -297,6 +334,10 @@ def start_the_game():
         player.move()
         background.render()
         tiles_group.draw(surface)
+        enemy_group.draw(surface)
+        for i in enemy_group:
+            i.move()
+        enemy_group.update()
         surface.blit(player.image, player.rect)
         pygame.display.flip()
         FPS_CLOCK.tick(FPS)
