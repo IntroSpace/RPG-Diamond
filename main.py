@@ -232,6 +232,7 @@ class Player(pygame.sprite.Sprite):
                             or sprite.rect.collidepoint(self.rect.topright[0] - 5, self.rect.topright[1]):
                         self.vel.y *= -1
                         self.acc.y *= -1
+                        break
 
 
 class Enemy(pygame.sprite.Sprite):
