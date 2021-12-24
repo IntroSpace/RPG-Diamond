@@ -1,6 +1,5 @@
 import os
 import sys
-import random
 
 import pygame
 import pygame_menu
@@ -87,10 +86,25 @@ class Ground(pygame.sprite.Sprite):
 
 
 class Tile(pygame.sprite.Sprite):
-    def __init__(self, pos, *groups):
+    def __init__(self, name, pos, *groups):
         super(Tile, self).__init__(tiles_group, *groups)
-        self.image = pygame.transform.scale(load_image('land.png'), (tile_size, tile_size))
+        self.image = pygame.transform.scale(load_image(name), (tile_size, tile_size))
         self.rect = self.image.get_rect(topleft=(pos[0] * tile_size, pos[1] * tile_size))
+
+
+class Land(Tile):
+    def __init__(self, pos, *groups):
+        super(Land, self).__init__('land.png', pos, *groups)
+
+
+class Stone1(Tile):
+    def __init__(self, pos, *groups):
+        super(Stone1, self).__init__('stone1.png', pos, *groups)
+
+
+class Sand(Tile):
+    def __init__(self, pos, *groups):
+        super(Sand, self).__init__('sand.png', pos, *groups)
 
 
 class Level:
@@ -100,7 +114,11 @@ class Level:
         for y, row in enumerate(data):
             for x, tile in enumerate(row):
                 if tile == 'L':
-                    Tile((x, y), other_group)
+                    Land((x, y), other_group)
+                if tile == 'S':
+                    Sand((x, y), other_group)
+                if tile == 'R':
+                    Stone1((x, y), other_group)
                 if tile == 'P':
                     res_player = Player((x, y))
         return res_player
@@ -205,10 +223,11 @@ class Player(pygame.sprite.Sprite):
         self.attack_frame += 1
 
     def correction(self):
-        if self.attack_frame == 1:
-            self.pos.x -= 20
-        if self.attack_frame == 10:
-            self.pos.x += 20
+        ...
+        # if self.attack_frame == 1:
+        #     self.pos.x -= 20
+        # if self.attack_frame == 10:
+        #     self.pos.x += 20
 
     def jump(self):
         if not self.jumping:
@@ -244,32 +263,13 @@ def set_difficulty(value, difficulty):
     pass
 
 
-level1 = [
-    'LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL',
-    'L                                  L',
-    'L                                  L',
-    'L                                  L',
-    'L                                  L',
-    'L                                  L',
-    'L                                  L',
-    'L                                  L',
-    'L                                  L',
-    'L    P                             L',
-    'L                         LL       L',
-    'L                 L                L',
-    'L                    LL            L',
-    'L       L     LL                   L',
-    'L     LLL    LLLL        LL  LL    L',
-    'L    LLLL   LLLLLLL     LL     LL  L',
-    'LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL',
-    'LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL',
-    'LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL'
-]
+def load_level_data(filename):
+    with open(f'levels/{filename}.map', mode='r', encoding='utf8') as f:
+        return Level.new_level(map(str.strip, f.readlines()))
 
 
 background = Background()
-player = Level.new_level(level1)
-# ground_group = pygame.sprite.Group()
+player = load_level_data('level1')
 
 
 def start_the_game():
@@ -305,8 +305,8 @@ def start_the_game():
 menu = pygame_menu.Menu('Welcome', 1920, 1080,
                         theme=pygame_menu.themes.THEME_DARK)
 
-menu.add.text_input('Name :', default='John Doe')
-menu.add.selector('Difficulty :', [('Hard', 3), ('Medium', 2), ('Easy', 1)], onchange=set_difficulty)
+menu.add.text_input('Name: ', default='John Doe')
+menu.add.selector('Difficulty: ', [('Hard', 3), ('Medium', 2), ('Easy', 1)], onchange=set_difficulty)
 menu.add.button('Play', start_the_game)
 menu.add.button('Quit', pygame_menu.events.EXIT)
 menu.mainloop(surface)
