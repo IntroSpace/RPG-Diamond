@@ -193,11 +193,15 @@ class Portal(Tile):
             self.counter = -7
 
     def update(self, *args, **kwargs) -> None:
-        if not self.rect.width / 2 < self.rect.centerx < WIDTH - self.rect.width / 2:
+        if not 0 < self.rect.centerx < WIDTH:
             return
-        if self.frame is None:
+        if self.frame is None and self.rect.width / 2 < self.rect.centerx < WIDTH - self.rect.width / 2:
             self.counter = -10
             self.open()
+        elif self.frame:
+            pass
+        else:
+            return
         row, col = self.frame
         self.counter += 1
         if self.counter == 7:
@@ -208,7 +212,14 @@ class Portal(Tile):
                 self.start_cycle()
                 row, col = self.frame
             elif row == 2:
-                self.kill()
+                global player, portal, level_num
+                for sprite in all_sprites.sprites():
+                    sprite.kill()
+                if level_num < len(levels):
+                    player, portal, level_num = load_level_from_list(levels, level_num)
+                else:
+                    print('end')
+                    player = None
         col = col % self.col
         self.frame = row, col
         self.image = self.frames[row * self.col + col]
@@ -433,52 +444,62 @@ def load_level_data(filename):
         return Level.new_level(map(str.strip, f.readlines()))
 
 
-world = World((WIDTH, HEIGHT - 100))
-background = Background()
-player, portal = load_level_data('level1')
+def load_level_from_list(list_of_levels, num):
+    return *load_level_data(list_of_levels[num]), num + 1
 
+
+world = level_num = player = portal = None
+background = Background()
+levels = ['level1', 'level2', 'level3']
 
 # skeleton = Enemy(load_image("SkeletonEnemyMove.png"), 0, 3, 100, 100, 12, 1)
 
 
 def start_the_game():
+    global world, level_num, player, portal
+    world = World((WIDTH, HEIGHT - 100))
+    level_num = 0
+    player, portal, level_num = load_level_from_list(levels, level_num)
     running = True
-    while running:
-        player.gravity_check()
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                if event.button == 1:
-                    if not player.attacking:
-                        player.attack()
-                        player.attacking = True
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_DELETE:
-                    world.key_dx = WORLD_VEL
-                if event.key == pygame.K_PAGEDOWN:
-                    world.key_dx = - WORLD_VEL
-        surface.fill((0, 0, 0))
-        player.update()
-        if player.attacking:
-            player.attack()
-        player.move()
-        background.render()
-        # for i in enemy_group:
-        #     i.move()
-        enemy_group.update()
-        world.update(player)
-        if world.dx != 0 or world.dy != 0:
-            player.world_shift(world.dx, world.dy)
-            for sprite in all_sprites.sprites():
-                sprite.rect = sprite.rect.move(world.dx, world.dy)
-        tiles_group.draw(surface)
-        enemy_group.draw(surface)
-        portal.update()
-        surface.blit(player.image, player.rect)
-        pygame.display.flip()
-        FPS_CLOCK.tick(FPS)
+    try:
+        while running:
+            player.gravity_check()
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if event.button == 1:
+                        if not player.attacking:
+                            player.attack()
+                            player.attacking = True
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_DELETE:
+                        world.key_dx = WORLD_VEL
+                    if event.key == pygame.K_PAGEDOWN:
+                        world.key_dx = - WORLD_VEL
+            surface.fill((0, 0, 0))
+            player.update()
+            if player.attacking:
+                player.attack()
+            player.move()
+            background.render()
+            # for i in enemy_group:
+            #     i.move()
+            enemy_group.update()
+            world.update(player)
+            if world.dx != 0 or world.dy != 0:
+                player.world_shift(world.dx, world.dy)
+                for sprite in all_sprites.sprites():
+                    sprite.rect = sprite.rect.move(world.dx, world.dy)
+            tiles_group.draw(surface)
+            enemy_group.draw(surface)
+            portal.update()
+            surface.blit(player.image, player.rect)
+            pygame.display.flip()
+            FPS_CLOCK.tick(FPS)
+    except AttributeError:
+        pass
 
 
 menu = pygame_menu.Menu('Welcome', WIDTH, HEIGHT,
