@@ -75,12 +75,13 @@ class World:
         self.dy = self.key_dy = 0
         width, height = screen_size
         self.borders_x = pygame.Rect(((width - height) // 2, 0, height, height))
+        self.borders_y = pygame.Rect((0, tile_size * 5, width, tile_size * 11))
 
     def update(self, __player):
         player_rect = __player.rect
         if self.key_dx != 0:
             if __player.vel.x == __player.acc.x == 0:
-                if (10 < __player.rect.x and self.key_dx < 0)\
+                if (10 < __player.rect.x and self.key_dx < 0) \
                         or (__player.rect.x < WIDTH - (__player.rect.width + 10) and self.key_dx > 0):
                     self.dx = self.key_dx
                 else:
@@ -89,14 +90,22 @@ class World:
             else:
                 self.key_dx = 0
         else:
-            if not self.borders_x.collidepoint(player_rect.topleft)\
+            if not self.borders_x.collidepoint(player_rect.topleft) \
                     and self.borders_x.x > player_rect.x:
                 self.dx = min([self.borders_x.x - player_rect.x, MAX_WORLD_VEL])
-            elif not self.borders_x.collidepoint(player_rect.topright)\
+            elif not self.borders_x.collidepoint(player_rect.topright) \
                     and self.borders_x.topright[0] < player_rect.topright[0]:
                 self.dx = - min([player_rect.topright[0] - self.borders_x.topright[0], MAX_WORLD_VEL])
             else:
                 self.dx = 0
+        if not self.borders_y.collidepoint(player_rect.topleft) \
+                and self.borders_y.y > player_rect.y:
+            self.dy = min([self.borders_y.y - player_rect.y, MAX_WORLD_VEL])
+        elif not self.borders_y.collidepoint(player_rect.bottomleft) \
+                and self.borders_y.bottomleft[1] + tile_size // 2 < player_rect.bottomleft[1]:
+            self.dy = - min([player_rect.bottomleft[1] - self.borders_y.bottomleft[1], MAX_WORLD_VEL])
+        else:
+            self.dy = 0
 
 
 class Background(pygame.sprite.Sprite):
@@ -122,10 +131,13 @@ class Ground(pygame.sprite.Sprite):
 
 
 class Tile(pygame.sprite.Sprite):
-    def __init__(self, name, pos, *groups):
-        super(Tile, self).__init__(all_sprites, tiles_group, *groups)
-        self.image = pygame.transform.scale(load_image(name), (tile_size, tile_size))
-        self.rect = self.image.get_rect(topleft=(pos[0] * tile_size, pos[1] * tile_size))
+    def __init__(self, name, pos, *groups, flag=0):
+        if flag == 1:
+            super(Tile, self).__init__(all_sprites, tiles_group, other_group)
+        else:
+            super(Tile, self).__init__(all_sprites, tiles_group, *groups)
+            self.image = pygame.transform.scale(load_image(name), (tile_size, tile_size))
+            self.rect = self.image.get_rect(topleft=(pos[0] * tile_size, pos[1] * tile_size))
 
 
 class Land(Tile):
@@ -143,10 +155,71 @@ class Sand(Tile):
         super(Sand, self).__init__('sand.png', pos, *groups)
 
 
+class Portal(Tile):
+    def __init__(self, sheet: pygame.Surface, pos, size):
+        super(Portal, self).__init__(0, 0, flag=1)
+        x, y = pos
+        self.row, self.col = size
+        self.frames = []
+        delta = int(tile_size * 0.65)
+        self.rect = pygame.Rect(x * tile_size - delta * 2, y * tile_size - delta * 2, tile_size + delta * 2,
+                                tile_size + delta * 2)
+        self.mask = None
+        self.cut_sheet(sheet)
+        self.frame = None
+        self.image = self.frames[self.col * 3 - 1]
+        self.mask = pygame.mask.from_surface(self.image)
+        self.counter = None
+
+    def cut_sheet(self, sheet):
+        size_sprite = sheet.get_width() // self.col, sheet.get_height() // self.row
+        for j in range(self.row):
+            for i in range(self.col):
+                frame_location = (size_sprite[0] * i, size_sprite[1] * j)
+                self.frames.append(pygame.transform.scale(sheet.subsurface(pygame.Rect(
+                    frame_location, size_sprite)), self.rect.size))
+
+    def open(self):
+        self.frame = 1, 0
+        self.image = self.frames[self.col]
+        self.mask = pygame.mask.from_surface(self.image)
+
+    def start_cycle(self):
+        self.frame = 0, 0
+
+    def close(self):
+        if self.frame[0] != 2:
+            self.frame = 2, 0
+            self.counter = -7
+
+    def update(self, *args, **kwargs) -> None:
+        if not self.rect.width / 2 < self.rect.centerx < WIDTH - self.rect.width / 2:
+            return
+        if self.frame is None:
+            self.counter = -10
+            self.open()
+        row, col = self.frame
+        self.counter += 1
+        if self.counter == 7:
+            col += 1
+            self.counter = 0
+        if col == self.col:
+            if row == 1:
+                self.start_cycle()
+                row, col = self.frame
+            elif row == 2:
+                self.kill()
+        col = col % self.col
+        self.frame = row, col
+        self.image = self.frames[row * self.col + col]
+        self.mask = pygame.mask.from_surface(self.image)
+
+
 class Level:
     @staticmethod
     def new_level(data):
         res_player = None
+        main_portal = None
         for y, row in enumerate(data):
             for x, tile in enumerate(row):
                 if tile == 'L':
@@ -157,7 +230,9 @@ class Level:
                     Stone1((x, y), other_group)
                 if tile == 'P':
                     res_player = Player((x, y))
-        return res_player
+                if tile == 'E':
+                    main_portal = Portal(load_image('green_portal.png'), (x, y), (3, 8))
+        return res_player, main_portal
 
 
 class Player(pygame.sprite.Sprite):
@@ -165,6 +240,7 @@ class Player(pygame.sprite.Sprite):
         super().__init__(all_sprites)
         self.image = load_image("Player_Sprite_R.png")
         self.rect = self.image.get_rect()
+        self.mask = pygame.mask.from_surface(self.image)
         # Атака
         self.attacking = False
         self.attack_frame = 0
@@ -185,6 +261,10 @@ class Player(pygame.sprite.Sprite):
         self.block_right = self.block_left = 0
         if sprite_list:
             for sprite in sprite_list:
+                if isinstance(sprite, Portal):
+                    if pygame.sprite.collide_mask(self, sprite):
+                        sprite.close()
+                    continue
                 rect = sprite.rect
                 if not self.block_right and rect.collidepoint(self.rect.midright):
                     self.block_right = 1
@@ -211,10 +291,6 @@ class Player(pygame.sprite.Sprite):
             if self.vel.x > 0 or (self.vel.x == 0 and self.acc.x > 0):
                 self.acc.x = self.vel.x = 0
         self.pos += self.vel + 0.5 * self.acc
-        # if self.pos.x > WIDTH:
-        #     self.pos.x = 0
-        # if self.pos.x < 0:
-        #     self.pos.x = WIDTH
         self.rect.midbottom = self.pos
 
     def world_shift(self, dx, dy):
@@ -224,6 +300,9 @@ class Player(pygame.sprite.Sprite):
     def update(self):
         if pygame.key.get_pressed()[pygame.K_SPACE]:
             self.jump()
+        if pygame.key.get_pressed()[pygame.K_RETURN] and not self.attacking:
+            self.attack()
+            self.attacking = True
         if self.move_frame > 10:
             self.move_frame = 0
             return
@@ -281,6 +360,10 @@ class Player(pygame.sprite.Sprite):
             if pygame.sprite.spritecollide(player, other_group, False):
                 sprites = pygame.sprite.spritecollide(player, other_group, False)
                 for sprite in sprites:
+                    if isinstance(sprite, Portal):
+                        if pygame.sprite.collide_mask(self, sprite):
+                            sprite.close()
+                        continue
                     if sprite.rect.collidepoint(self.rect.bottomleft[0] + 5, self.rect.bottomleft[1]) \
                             or sprite.rect.collidepoint(self.rect.bottomright[0] - 5, self.rect.bottomright[1]):
                         self.pos.y = sprite.rect.top + 1
@@ -289,6 +372,10 @@ class Player(pygame.sprite.Sprite):
         elif self.vel.y < 0:
             if pygame.sprite.spritecollide(player, other_group, False):
                 for sprite in pygame.sprite.spritecollide(player, other_group, False):
+                    if isinstance(sprite, Portal):
+                        if pygame.sprite.collide_mask(self, sprite):
+                            sprite.close()
+                        continue
                     if sprite.rect.collidepoint(self.rect.topleft[0] + 5, self.rect.topleft[1]) \
                             or sprite.rect.collidepoint(self.rect.topright[0] - 5, self.rect.topright[1]):
                         self.vel.y *= -1
@@ -348,8 +435,10 @@ def load_level_data(filename):
 
 world = World((WIDTH, HEIGHT - 100))
 background = Background()
-player = load_level_data('level1')
-skeleton = Enemy(load_image("SkeletonEnemyMove.png"), 0, 3, 100, 100, 12, 1)
+player, portal = load_level_data('level1')
+
+
+# skeleton = Enemy(load_image("SkeletonEnemyMove.png"), 0, 3, 100, 100, 12, 1)
 
 
 def start_the_game():
@@ -376,16 +465,17 @@ def start_the_game():
             player.attack()
         player.move()
         background.render()
-        for i in enemy_group:
-            i.move()
+        # for i in enemy_group:
+        #     i.move()
         enemy_group.update()
         world.update(player)
-        if world.dx != 0:
+        if world.dx != 0 or world.dy != 0:
             player.world_shift(world.dx, world.dy)
             for sprite in all_sprites.sprites():
                 sprite.rect = sprite.rect.move(world.dx, world.dy)
         tiles_group.draw(surface)
         enemy_group.draw(surface)
+        portal.update()
         surface.blit(player.image, player.rect)
         pygame.display.flip()
         FPS_CLOCK.tick(FPS)
