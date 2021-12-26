@@ -18,6 +18,10 @@ WORLD_VEL = 5
 MAX_WORLD_VEL = 5
 pygame.display.set_caption("Game")
 tile_size = HEIGHT // 20
+game_font = pygame.font.Font(os.path.abspath('data/fonts/pixeloid_sans.ttf'), 35)
+
+TEXT_COLOR = pygame.Color(115, 125, 125)
+TEXT_SHIFT = game_font.render(f'Your score: 0   ©', True, TEXT_COLOR).get_width() // 1.4 + 15
 
 # группа всех спрайтов
 all_sprites = pygame.sprite.Group()
@@ -27,6 +31,8 @@ tiles_group = pygame.sprite.Group()
 other_group = pygame.sprite.Group()
 # группа врагов
 enemy_group = pygame.sprite.Group()
+# группа для монеток
+coins_group = pygame.sprite.Group()
 
 
 # Анимации для бега вправо
@@ -218,7 +224,6 @@ class Portal(Tile):
                 if level_num < len(levels):
                     player, portal, level_num = load_level_from_list(levels, level_num)
                 else:
-                    print('end')
                     player = None
         col = col % self.col
         self.frame = row, col
@@ -240,14 +245,16 @@ class Level:
                 if tile == 'R':
                     Stone1((x, y), other_group)
                 if tile == 'P':
-                    res_player = Player((x, y))
+                    res_player = Player((x, y), 0 if player is None else player.score)
                 if tile == 'E':
                     main_portal = Portal(load_image('green_portal.png'), (x, y), (3, 8))
+                if tile == 'C':
+                    Coin((x, y))
         return res_player, main_portal
 
 
 class Player(pygame.sprite.Sprite):
-    def __init__(self, pos):
+    def __init__(self, pos, score=0):
         super().__init__(all_sprites)
         self.image = load_image("Player_Sprite_R.png")
         self.rect = self.image.get_rect()
@@ -266,6 +273,7 @@ class Player(pygame.sprite.Sprite):
         self.acc = vec(0, 0)
         self.direction = "RIGHT"
         self.block_right = self.block_left = 0
+        self.score = score
 
     def move(self):
         sprite_list = pygame.sprite.spritecollide(self, other_group, False)
@@ -275,6 +283,8 @@ class Player(pygame.sprite.Sprite):
                 if isinstance(sprite, Portal):
                     if pygame.sprite.collide_mask(self, sprite):
                         sprite.close()
+                    continue
+                if isinstance(sprite, Coin):
                     continue
                 rect = sprite.rect
                 if not self.block_right and rect.collidepoint(self.rect.midright):
@@ -375,6 +385,8 @@ class Player(pygame.sprite.Sprite):
                         if pygame.sprite.collide_mask(self, sprite):
                             sprite.close()
                         continue
+                    if isinstance(sprite, Coin):
+                        continue
                     if sprite.rect.collidepoint(self.rect.bottomleft[0] + 5, self.rect.bottomleft[1]) \
                             or sprite.rect.collidepoint(self.rect.bottomright[0] - 5, self.rect.bottomright[1]):
                         self.pos.y = sprite.rect.top + 1
@@ -387,11 +399,22 @@ class Player(pygame.sprite.Sprite):
                         if pygame.sprite.collide_mask(self, sprite):
                             sprite.close()
                         continue
+                    if isinstance(sprite, Coin):
+                        continue
                     if sprite.rect.collidepoint(self.rect.topleft[0] + 5, self.rect.topleft[1]) \
                             or sprite.rect.collidepoint(self.rect.topright[0] - 5, self.rect.topright[1]):
                         self.vel.y *= -1
                         self.acc.y *= -1
                         break
+
+    def single_score(self, screen):
+        text = game_font.render(f'Your score: {str(self.score).ljust(3, " ")}©', True, TEXT_COLOR)
+        text_x = WIDTH - tile_size * 2 - TEXT_SHIFT
+        text_y = tile_size
+        screen.blit(text, (text_x, text_y))
+
+    def add_score(self):
+        self.score += 1
 
 
 class Enemy(pygame.sprite.Sprite):
@@ -419,6 +442,7 @@ class Enemy(pygame.sprite.Sprite):
                     frame_location, self.rect.size)))
 
     def update(self):
+        self.move()
         # Анимация врага
         if self.count % 5 == 0:
             self.cur_frame = (self.cur_frame + 1) % len(self.frames)
@@ -433,6 +457,35 @@ class Enemy(pygame.sprite.Sprite):
             if self.direction == 1:
                 self.position.x -= self.velocity.x
         self.rect.center = self.position
+
+
+class Coin(pygame.sprite.Sprite):
+    def __init__(self, pos, *other_groups):
+        super(Coin, self).__init__(all_sprites, other_group, coins_group, *other_groups)
+        self.frames = list()
+        self.frame = 0
+        self.count = 0
+        self.rect = pygame.Rect((pos[0] * tile_size, pos[1] * tile_size, tile_size, tile_size))
+        self.mask = None
+        self.cut_sheet(load_image('coin_yellow.png'))
+
+    def cut_sheet(self, sheet):
+        size_sprite = sheet.get_width() // 5, sheet.get_height()
+        for i in range(5):
+            frame_location = (size_sprite[0] * i, 0)
+            self.frames.append(pygame.transform.scale(sheet.subsurface(pygame.Rect(
+                frame_location, size_sprite)), self.rect.size))
+
+    def update(self, *args, **kwargs):
+        self.image = self.frames[self.frame]
+        self.mask = pygame.mask.from_surface(self.image)
+        if pygame.sprite.collide_mask(self, player):
+            player.add_score()
+            self.kill()
+        if self.count == 5:
+            self.frame = (self.frame + 1) % 5
+            self.count = 0
+        self.count += 1
 
 
 def set_difficulty(value, difficulty):
@@ -463,6 +516,7 @@ def start_the_game():
     running = True
     try:
         while running:
+            coins_group.update()
             player.gravity_check()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -484,22 +538,22 @@ def start_the_game():
                 player.attack()
             player.move()
             background.render()
-            # for i in enemy_group:
-            #     i.move()
             enemy_group.update()
             world.update(player)
             if world.dx != 0 or world.dy != 0:
                 player.world_shift(world.dx, world.dy)
                 for sprite in all_sprites.sprites():
                     sprite.rect = sprite.rect.move(world.dx, world.dy)
-            tiles_group.draw(surface)
-            enemy_group.draw(surface)
+            other_group.draw(surface)
             portal.update()
+            player.single_score(surface)
             surface.blit(player.image, player.rect)
             pygame.display.flip()
             FPS_CLOCK.tick(FPS)
-    except AttributeError:
+    except AttributeError as e:
         pass
+    except Exception as e:
+        print(e)
 
 
 menu = pygame_menu.Menu('Welcome', WIDTH, HEIGHT,
