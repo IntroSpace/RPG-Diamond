@@ -19,6 +19,8 @@ MAX_WORLD_VEL = 5
 pygame.display.set_caption("Game")
 tile_size = HEIGHT // 20
 game_font = pygame.font.Font(os.path.abspath('data/fonts/pixeloid_sans.ttf'), 35)
+intro_count = None
+s = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
 
 TEXT_COLOR = pygame.Color(115, 125, 125)
 TEXT_SHIFT = game_font.render(f'Your score: 0   ©', True, TEXT_COLOR).get_width() // 1.4 + 15
@@ -117,12 +119,13 @@ class World:
 class Background(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()
-        self.bgimage = pygame.transform.scale(load_image('background.jpg'), (1920, 1080))
+        self.image = pygame.transform.scale(load_image('background.jpg'), (WIDTH, HEIGHT))
         self.bgY = 0
         self.bgX = 0
+        self.rect = self.image.get_rect(topleft=(self.bgX, self.bgY))
 
     def render(self):
-        surface.blit(self.bgimage, (self.bgX, self.bgY))
+        surface.blit(self.image, (self.bgX, self.bgY))
 
 
 class Ground(pygame.sprite.Sprite):
@@ -218,13 +221,7 @@ class Portal(Tile):
                 self.start_cycle()
                 row, col = self.frame
             elif row == 2:
-                global player, portal, level_num
-                for sprite in all_sprites.sprites():
-                    sprite.kill()
-                if level_num < len(levels):
-                    player, portal, level_num = load_level_from_list(levels, level_num)
-                else:
-                    player = None
+                outro_play()
         col = col % self.col
         self.frame = row, col
         self.image = self.frames[row * self.col + col]
@@ -468,6 +465,8 @@ class Coin(pygame.sprite.Sprite):
         self.rect = pygame.Rect((pos[0] * tile_size, pos[1] * tile_size, tile_size, tile_size))
         self.mask = None
         self.cut_sheet(load_image('coin_yellow.png'))
+        self.image = self.frames[self.frame]
+        self.mask = pygame.mask.from_surface(self.image)
 
     def cut_sheet(self, sheet):
         size_sprite = sheet.get_width() // 5, sheet.get_height()
@@ -482,7 +481,7 @@ class Coin(pygame.sprite.Sprite):
         if pygame.sprite.collide_mask(self, player):
             player.add_score()
             self.kill()
-        if self.count == 5:
+        if self.count == 7:
             self.frame = (self.frame + 1) % 5
             self.count = 0
         self.count += 1
@@ -493,12 +492,39 @@ def set_difficulty(value, difficulty):
 
 
 def load_level_data(filename):
+    global intro_count
+    intro_count = 255
     with open(f'levels/{filename}.map', mode='r', encoding='utf8') as f:
         return Level.new_level(map(str.strip, f.readlines()))
 
 
 def load_level_from_list(list_of_levels, num):
     return *load_level_data(list_of_levels[num]), num + 1
+
+
+def intro_play():
+    global intro_count
+    s.fill((10, 10, 10, intro_count))
+    surface.blit(s, (0, 0))
+    intro_count -= 2
+
+
+def outro_play():
+    outro_count = 0
+    while outro_count < 255:
+        background.render()
+        all_sprites.draw(surface)
+        s.fill((10, 10, 10, outro_count))
+        surface.blit(s, (0, 0))
+        pygame.display.flip()
+        outro_count += 2
+    global player, portal, level_num
+    for sprite in all_sprites.sprites():
+        sprite.kill()
+    if level_num < len(levels):
+        player, portal, level_num = load_level_from_list(levels, level_num)
+    else:
+        player = None
 
 
 world = level_num = player = portal = None
@@ -548,12 +574,12 @@ def start_the_game():
             portal.update()
             player.single_score(surface)
             surface.blit(player.image, player.rect)
+            if intro_count > 0:
+                intro_play()
             pygame.display.flip()
             FPS_CLOCK.tick(FPS)
     except AttributeError as e:
-        pass
-    except Exception as e:
-        print(e)
+        FPS_CLOCK.tick(0.5)
 
 
 menu = pygame_menu.Menu('Welcome', WIDTH, HEIGHT,
