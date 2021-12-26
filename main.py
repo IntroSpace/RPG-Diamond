@@ -25,6 +25,8 @@ s = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
 TEXT_COLOR = pygame.Color(115, 125, 125)
 TEXT_SHIFT = game_font.render(f'Your score: 0   ©', True, TEXT_COLOR).get_width() // 1.4 + 15
 
+enemies = list()
+
 # группа всех спрайтов
 all_sprites = pygame.sprite.Group()
 # группа блоков
@@ -247,6 +249,8 @@ class Level:
                     main_portal = Portal(load_image('green_portal.png'), (x, y), (3, 8))
                 if tile == 'C':
                     Coin((x, y))
+                if tile == 'B':
+                    enemies.append(Bat((x, y)))
         return res_player, main_portal
 
 
@@ -416,7 +420,7 @@ class Player(pygame.sprite.Sprite):
 
 class Enemy(pygame.sprite.Sprite):
     def __init__(self, sheet: pygame.Surface, direction: int, velocity: int, x: int, y: int, columns: int, rows: int):
-        super().__init__(all_sprites, enemy_group)
+        super().__init__(all_sprites, other_group, enemy_group)
         self.frames = []
         self.direction = direction
         self.cut_sheet(sheet, columns, rows)
@@ -430,13 +434,14 @@ class Enemy(pygame.sprite.Sprite):
         self.count = 0
 
     def cut_sheet(self, sheet, columns, rows):
-        self.rect = pygame.Rect(0, 0, sheet.get_width() // columns,
-                                sheet.get_height() // rows)
+        sprite_rect = pygame.Rect(0, 0, sheet.get_width() // columns,
+                                  sheet.get_height() // rows)
+        self.rect = pygame.Rect(0, 0, tile_size, tile_size)
         for j in range(rows):
             for i in range(columns):
-                frame_location = (self.rect.w * i, self.rect.h * j)
-                self.frames.append(sheet.subsurface(pygame.Rect(
-                    frame_location, self.rect.size)))
+                frame_location = (sprite_rect.w * i, sprite_rect.h * j)
+                self.frames.append(pygame.transform.scale(sheet.subsurface(pygame.Rect(
+                    frame_location, sprite_rect.size)), self.rect.size))
 
     def update(self):
         self.move()
@@ -454,6 +459,15 @@ class Enemy(pygame.sprite.Sprite):
             if self.direction == 1:
                 self.position.x -= self.velocity.x
         self.rect.center = self.position
+
+    def world_shift(self, dx, dy):
+        self.position += vec(dx, dy)
+
+
+class Bat(Enemy):
+    def __init__(self, pos):
+        super(Bat, self).__init__(load_image('bat_sprite.png'), 0, 5,
+                                  pos[0] * tile_size, pos[1] * tile_size, 5, 3)
 
 
 class Coin(pygame.sprite.Sprite):
@@ -521,6 +535,7 @@ def outro_play():
     global player, portal, level_num
     for sprite in all_sprites.sprites():
         sprite.kill()
+    enemies.clear()
     if level_num < len(levels):
         player, portal, level_num = load_level_from_list(levels, level_num)
     else:
@@ -568,9 +583,12 @@ def start_the_game():
             world.update(player)
             if world.dx != 0 or world.dy != 0:
                 player.world_shift(world.dx, world.dy)
+                for enemy in enemies:
+                    enemy.world_shift(world.dx, world.dy)
                 for sprite in all_sprites.sprites():
                     sprite.rect = sprite.rect.move(world.dx, world.dy)
             other_group.draw(surface)
+            enemy_group.draw(surface)
             portal.update()
             player.single_score(surface)
             surface.blit(player.image, player.rect)
@@ -578,7 +596,7 @@ def start_the_game():
                 intro_play()
             pygame.display.flip()
             FPS_CLOCK.tick(FPS)
-    except AttributeError as e:
+    except AttributeError:
         FPS_CLOCK.tick(0.5)
 
 
