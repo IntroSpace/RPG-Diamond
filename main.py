@@ -22,6 +22,7 @@ game_font = pygame.font.Font(os.path.abspath('data/fonts/pixeloid_sans.ttf'), 35
 intro_count = None
 s = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
 player_state = None
+NON_COMFORT_ZONE = pygame.Rect(WIDTH * 0.2, HEIGHT * 0.1, WIDTH * 0.6, HEIGHT * 0.8)
 
 TEXT_COLOR = pygame.Color(115, 125, 125)
 TEXT_SHIFT = game_font.render(f'Your score: 0   ©', True, TEXT_COLOR).get_width() // 1.4 + 15
@@ -469,11 +470,12 @@ class Enemy(pygame.sprite.Sprite):
                 self.frames.append(pygame.transform.scale(sheet.subsurface(pygame.Rect(
                     frame_location, sprite_rect.size)), self.rect.size))
 
-    def update(self):
+    def update(self, without_move=False):
         # Анимация врага
         if self.count == 5:
             self.count = 0
-            self.move()
+            if not without_move:
+                self.move()
             self.frame = self.frame[0], self.frame[1] + 1
             self.image = self.frames[self.frame[0] * self.columns + self.frame[1]]
             if self.direction == -1:
@@ -481,10 +483,6 @@ class Enemy(pygame.sprite.Sprite):
         self.count += 1
 
     def move(self):
-        # if self.frame[1] == 1:
-        #     direction = sample([-1, 0, 0, 0, 0, 0, 0, 0, 1], 1)[0]
-        #     if direction != 0:
-        #         self.direction = direction
         if 2 * tile_size - (self.velocity.x - 1) // 2 <= abs(self.delta_x) \
                 <= 2 * tile_size + (self.velocity.x - 1) // 2:
             self.direction = self.direction * -1
@@ -502,9 +500,11 @@ class Enemy(pygame.sprite.Sprite):
 
 
 class Bat(Enemy):
-    def __init__(self, pos):
+    def __init__(self, pos, angry_vel=(2, 1)):
         super(Bat, self).__init__(load_image('bat_sprite.png'), 1, 5,
                                   pos[0] * tile_size, pos[1] * tile_size, 5, 3)
+        self.angry_state = False
+        self.angry_vel = vec(*angry_vel)
         self.start()
 
     def start(self):
@@ -517,8 +517,16 @@ class Bat(Enemy):
         return self.frame[0] == 2
 
     def update(self):
+        if abs(self.rect.x - player.rect.x) <= WIDTH * 0.6 \
+                and abs(self.rect.y - player.rect.y) <= HEIGHT * 0.8:
+            if not self.angry_state:
+                self.start_angry()
+            else:
+                self.angry()
+        else:
+            self.stop_angry()
         if self.frame[0] != 2:
-            super(Bat, self).update()
+            super(Bat, self).update(self.frame[0] == 0)
         else:
             if self.count == 10:
                 self.frame = 2, self.frame[1] + 1
@@ -533,6 +541,54 @@ class Bat(Enemy):
                 self.kill()
                 return
             self.frame = self.frame[0], -1
+
+    def start_angry(self):
+        self.angry_state = True
+        self.frame = 0, self.frame[1]
+
+    def stop_angry(self):
+        self.angry_state = False
+        self.frame = 1, self.frame[1]
+
+    def angry(self):
+        if self.frame[0] == 2:
+            return
+        delta = (self.velocity.x - 1) // 2
+        if self.rect.y - delta <= player.rect.y <= self.rect.y + delta:
+            if player.attacking:
+                self.position.y -= self.angry_vel.y
+        elif self.rect.y < player.rect.y:
+            if player.attacking:
+                self.position.y -= self.angry_vel.y
+            else:
+                self.position.y += self.angry_vel.y
+        else:
+            if player.attacking:
+                self.position.y += self.angry_vel.y
+            else:
+                self.position.y -= self.angry_vel.y
+        self.rect.topleft = self.position
+        if self.rect.x - delta <= player.rect.x <= self.rect.x + delta:
+            if player.attacking:
+                self.direction = 1
+            else:
+                return
+        if self.rect.x < player.rect.x:
+            if player.attacking:
+                self.direction = -1
+            else:
+                self.direction = 1
+        elif self.rect.x > player.rect.x:
+            if player.attacking:
+                self.direction = 1
+            else:
+                self.direction = -1
+        # ИИ во время "злости"
+        if self.direction == 1:
+            self.position.x += self.angry_vel.x
+        if self.direction == -1:
+            self.position.x -= self.angry_vel.x
+        self.rect.topleft = self.position
 
 
 class Coin(pygame.sprite.Sprite):
