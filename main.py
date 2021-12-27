@@ -1,4 +1,5 @@
 import os
+import random
 import sys
 
 import pygame
@@ -39,6 +40,8 @@ other_group = pygame.sprite.Group()
 enemy_group = pygame.sprite.Group()
 # группа для монеток
 coins_group = pygame.sprite.Group()
+# группа магических снарядов
+fireball_group = pygame.sprite.Group()
 
 
 # Анимации для бега вправо
@@ -263,6 +266,8 @@ class Player(pygame.sprite.Sprite):
         self.image = load_image("Player_Sprite_R.png")
         self.rect = self.image.get_rect()
         self.mask = pygame.mask.from_surface(self.image)
+        self.experience = 0
+        self.mana = 6
         # Атака
         self.attacking = False
         self.attack_frame = 0
@@ -451,6 +456,7 @@ class Enemy(pygame.sprite.Sprite):
         self.direction = direction
         self.cut_sheet(sheet, columns, rows)
         self.columns = columns
+        self.mana = 3
         self.frame = 0, 0
         self.image = self.frames[self.frame[0] * self.columns + self.frame[1]]
         self.rect = self.image.get_rect(topleft=(x, y))
@@ -512,6 +518,8 @@ class Bat(Enemy):
 
     def end(self):
         self.frame = 2, 0
+        player.experience += 1
+        player.mana += self.mana
 
     def is_killed(self):
         return self.frame[0] == 2
@@ -622,6 +630,46 @@ class Coin(pygame.sprite.Sprite):
         self.count += 1
 
 
+class FireBall(pygame.sprite.Sprite):
+    def __init__(self):
+        super().__init__()
+        self.direction = player.direction
+        if self.direction == "RIGHT":
+            self.image = load_image("fire_R.png")
+        else:
+            self.image = load_image("fire_L.png")
+        self.rect = self.image.get_rect(center=player.pos)
+        self.rect.x = player.pos.x
+        self.rect.y = player.pos.y - 40
+
+    def fire(self):
+        player.magic_cooldown = 0
+        # Запускается пока снаряд находится в рамках экрана
+        if -10 < self.rect.x < WIDTH:
+            if self.direction == "RIGHT":
+                self.image = load_image("fire_R.png")
+                surface.blit(self.image, self.rect)
+            else:
+                self.image = load_image("fire_L.png")
+                surface.blit(self.image, self.rect)
+
+            if self.direction == "RIGHT":
+                self.rect.move_ip(12, 0)
+            else:
+                self.rect.move_ip(-12, 0)
+        else:
+            self.kill()
+            player.magic_cooldown = 1
+            player.attacking = False
+        if pygame.sprite.spritecollide(self, other_group, False):
+            for sprite in pygame.sprite.spritecollide(self, other_group, False):
+                if isinstance(sprite, Enemy):
+                    sprite.kill()
+                    player.mana += sprite.mana
+                if isinstance(sprite, Tile):
+                    self.kill()
+
+
 def set_difficulty(value, difficulty):
     pass
 
@@ -696,6 +744,12 @@ def start_the_game():
                         if not player.attacking:
                             player.attack()
                             player.attacking = True
+                    if event.button == 3:
+                        if player.mana >= 6:
+                            player.mana -= 6
+                            player.attacking = True
+                            fireball = FireBall()
+                            fireball_group.add(fireball)
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_DELETE:
                         world.key_dx = WORLD_VEL
@@ -707,6 +761,8 @@ def start_the_game():
                 player.attack()
             player.move()
             background.render()
+            for ball in fireball_group:
+                ball.fire()
             enemy_group.update()
             world.update(player)
             if world.dx != 0 or world.dy != 0:
