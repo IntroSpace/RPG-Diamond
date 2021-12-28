@@ -25,6 +25,11 @@ s = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
 player_state = None
 NON_COMFORT_ZONE = pygame.Rect(WIDTH * 0.2, HEIGHT * 0.1, WIDTH * 0.6, HEIGHT * 0.8)
 
+pick_up = pygame.mixer.Sound('data/sounds/pick_up.wav')
+player_regeneration = pygame.mixer.Sound('data/sounds/player_regeneration.wav')
+pygame.mixer.music.load('data/sounds/background_music.wav')
+pygame.mixer.music.play(-1)
+
 TEXT_COLOR = pygame.Color(115, 125, 125)
 TEXT_SHIFT = game_font.render(f'Your score: 0   ©', True, TEXT_COLOR).get_width() // 1.4 + 15
 
@@ -369,7 +374,8 @@ class Player(pygame.sprite.Sprite):
     def attack(self):
         if self.attack_frame > 9:
             self.attack_frame = -1
-            self.attacking = False
+            if not pygame.key.get_pressed()[pygame.K_RETURN]:
+                self.attacking = False
         if self.direction == "RIGHT":
             if self.attack_frame < 0:
                 self.attack_frame = 0
@@ -439,6 +445,7 @@ class Player(pygame.sprite.Sprite):
 
     def add_score(self):
         self.score += 1
+        pick_up.play()
 
     def enemy_collide(self, enemy):
         if enemy.is_killed():
@@ -689,6 +696,8 @@ def intro_play():
     global intro_count
     s.fill((10, 10, 10, intro_count))
     surface.blit(s, (0, 0))
+    if intro_count == 225:
+        player_regeneration.play()
     intro_count -= 2
 
 
