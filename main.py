@@ -36,11 +36,11 @@ jump_sound = pygame.mixer.Sound('data/sounds/jump.wav')
 jump_sound.set_volume(0.35)
 knife_attack_sound = pygame.mixer.Sound('data/sounds/knife_attack.wav')
 knife_attack_sound.set_volume(0.6)
+teleport_sound = pygame.mixer.Sound('data/sounds/teleport.wav')
+teleport_sound.set_volume(0.8)
 # step_sound = pygame.mixer.Sound('data/sounds/footsteps.wav')
 pygame.mixer.music.load('data/sounds/background_music.wav')
 pygame.mixer.music.play(-1)
-
-pygame.mixer.music.set_volume(0)
 
 TEXT_COLOR = pygame.Color(115, 125, 125)
 TEXT_SHIFT = game_font.render(f'Your score: 0   ©', True, TEXT_COLOR).get_width() // 1.4 + 15
@@ -252,6 +252,7 @@ class Portal(Tile):
                 self.start_cycle()
                 row, col = self.frame
             elif row == 2:
+                teleport_sound.play()
                 outro_play()
         col = col % self.col
         self.frame = row, col
