@@ -25,18 +25,22 @@ s = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
 player_state = None
 NON_COMFORT_ZONE = pygame.Rect(WIDTH * 0.3, HEIGHT * 0.2, WIDTH * 0.4, HEIGHT * 0.6)
 
+heart_files = ['death', 'onelife', 'halflife', 'almosthalflife', 'fulllife']
+
 pick_up = pygame.mixer.Sound('data/sounds/pick_up.wav')
 pick_up.set_volume(0.22)
 player_regeneration = pygame.mixer.Sound('data/sounds/player_regeneration.wav')
 player_regeneration.set_volume(0.13)
 bat_sound = pygame.mixer.Sound('data/sounds/bats.wav')
 jump_sound = pygame.mixer.Sound('data/sounds/jump.wav')
-jump_sound.set_volume(0.5)
+jump_sound.set_volume(0.35)
 knife_attack_sound = pygame.mixer.Sound('data/sounds/knife_attack.wav')
 knife_attack_sound.set_volume(0.6)
 # step_sound = pygame.mixer.Sound('data/sounds/footsteps.wav')
 pygame.mixer.music.load('data/sounds/background_music.wav')
 pygame.mixer.music.play(-1)
+
+pygame.mixer.music.set_volume(0)
 
 TEXT_COLOR = pygame.Color(115, 125, 125)
 TEXT_SHIFT = game_font.render(f'Your score: 0   ©', True, TEXT_COLOR).get_width() // 1.4 + 15
@@ -55,6 +59,8 @@ enemy_group = pygame.sprite.Group()
 coins_group = pygame.sprite.Group()
 # группа магических снарядов
 fireball_group = pygame.sprite.Group()
+# группа для отображения сердечек и маны
+design_group = pygame.sprite.Group()
 
 
 # Анимации для бега вправо
@@ -93,6 +99,13 @@ attack_animation_LEFT = [load_image("Player_Sprite_L.png"), load_image("Player_A
                          load_image("Player_Attack3_L.png"), load_image("Player_Attack3_L.png"),
                          load_image("Player_Attack4_L.png"), load_image("Player_Attack4_L.png"),
                          load_image("Player_Attack5_L.png"), load_image("Player_Attack5_L.png")]
+
+life_states = [[] for i in range(len(heart_files))]
+for i, directory in enumerate(heart_files):
+    final_dir = os.path.join('designs', directory)
+    for file in os.listdir(os.path.join('data', final_dir)):
+        life_states[i].append(pygame.transform.scale(load_image(os.path.join(final_dir, file)),
+                                                     (0.11 * WIDTH, 0.11 / 4 * WIDTH)))
 
 
 class World:
@@ -298,6 +311,7 @@ class Player(pygame.sprite.Sprite):
         self.direction = "RIGHT"
         self.block_right = self.block_left = 0
         self.score = score
+        self.heart = 4 if heart is None else heart.heart
 
     def move(self):
         sprite_list = pygame.sprite.spritecollide(self, other_group, False)
@@ -466,6 +480,8 @@ class Player(pygame.sprite.Sprite):
         if self.attacking:
             enemy.end()
         else:
+            self.heart -= 1
+            heart.heart -= 1
             outro_play(replay=True)
 
 
@@ -692,6 +708,30 @@ class FireBall(pygame.sprite.Sprite):
                     self.kill()
 
 
+class Heart(pygame.sprite.Sprite):
+    def __init__(self):
+        super(Heart, self).__init__(all_sprites, design_group)
+        self.image = life_states[-1][0]
+        self.rect = self.image.get_rect(topleft=(tile_size, tile_size))
+        self.heart = len(heart_files)
+        self.count = 0
+        self.frame = -1
+
+    def update(self):
+        if self.heart != player.heart:
+            self.heart = player.heart
+            self.frame = self.frame % len(life_states[self.heart])
+        cur_frames = life_states[self.heart]
+        if self.count == 12:
+            self.frame = (self.frame + 1) % len(cur_frames)
+            self.count = 0
+        self.count += 1
+        self.image = cur_frames[self.frame]
+
+
+heart = None
+
+
 def set_difficulty(value, difficulty):
     pass
 
@@ -708,7 +748,9 @@ def load_level_from_list(list_of_levels, num):
 
 
 def intro_play():
-    global intro_count
+    global intro_count, heart
+    if (heart is None or heart.heart <= 0) and intro_count >= 255:
+        heart = Heart()
     s.fill((10, 10, 10, intro_count))
     surface.blit(s, (0, 0))
     if intro_count == 225:
@@ -724,11 +766,15 @@ def outro_play(replay=False):
     while outro_count < 255:
         background.render()
         all_sprites.draw(surface)
+        player.single_score(surface)
+        design_group.draw(surface)
         s.fill((10, 10, 10, outro_count))
         surface.blit(s, (0, 0))
         pygame.display.flip()
         outro_count += 2
     for sprite in all_sprites.sprites():
+        if isinstance(sprite, Heart) and sprite.heart > 0:
+            continue
         sprite.kill()
     enemies.clear()
     bat_sound.stop()
@@ -795,11 +841,15 @@ def start_the_game():
                 for enemy in enemies:
                     enemy.world_shift(world.dx, world.dy)
                 for sprite in all_sprites.sprites():
+                    if design_group.has(sprite):
+                        continue
                     sprite.rect = sprite.rect.move(world.dx, world.dy)
             other_group.draw(surface)
             enemy_group.draw(surface)
             portal.update()
             player.single_score(surface)
+            design_group.update()
+            design_group.draw(surface)
             surface.blit(player.image, player.rect)
             if intro_count > 0:
                 intro_play()
