@@ -23,10 +23,18 @@ game_font = pygame.font.Font(os.path.abspath('data/fonts/pixeloid_sans.ttf'), 35
 intro_count = None
 s = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
 player_state = None
-NON_COMFORT_ZONE = pygame.Rect(WIDTH * 0.2, HEIGHT * 0.1, WIDTH * 0.6, HEIGHT * 0.8)
+NON_COMFORT_ZONE = pygame.Rect(WIDTH * 0.3, HEIGHT * 0.2, WIDTH * 0.4, HEIGHT * 0.6)
 
 pick_up = pygame.mixer.Sound('data/sounds/pick_up.wav')
+pick_up.set_volume(0.22)
 player_regeneration = pygame.mixer.Sound('data/sounds/player_regeneration.wav')
+player_regeneration.set_volume(0.13)
+bat_sound = pygame.mixer.Sound('data/sounds/bats.wav')
+jump_sound = pygame.mixer.Sound('data/sounds/jump.wav')
+jump_sound.set_volume(0.5)
+knife_attack_sound = pygame.mixer.Sound('data/sounds/knife_attack.wav')
+knife_attack_sound.set_volume(0.6)
+# step_sound = pygame.mixer.Sound('data/sounds/footsteps.wav')
 pygame.mixer.music.load('data/sounds/background_music.wav')
 pygame.mixer.music.play(-1)
 
@@ -262,6 +270,8 @@ class Level:
                     Coin((x, y))
                 if tile == 'B':
                     enemies.append(Bat((x, y)))
+                    bat_sound.stop()
+                    bat_sound.play(-1)
         return res_player, main_portal
 
 
@@ -372,6 +382,8 @@ class Player(pygame.sprite.Sprite):
                 self.image = run_animation_LEFT[self.move_frame // 2]
 
     def attack(self):
+        if self.attack_frame == 1:
+            knife_attack_sound.play()
         if self.attack_frame > 9:
             self.attack_frame = -1
             if not pygame.key.get_pressed()[pygame.K_RETURN]:
@@ -396,6 +408,7 @@ class Player(pygame.sprite.Sprite):
         if not self.jumping:
             self.jumping = True
             self.vel.y = -12
+            jump_sound.play()
 
     def gravity_check(self):
         if self.vel.y > 0:
@@ -527,6 +540,8 @@ class Bat(Enemy):
         self.frame = 2, 0
         player.experience += 1
         player.mana += self.mana
+        if len(enemies) == 1:
+            bat_sound.fadeout(1000)
 
     def is_killed(self):
         return self.frame[0] == 2
@@ -668,11 +683,11 @@ class FireBall(pygame.sprite.Sprite):
             self.kill()
             player.magic_cooldown = 1
             player.attacking = False
+            return
         if pygame.sprite.spritecollide(self, other_group, False):
             for sprite in pygame.sprite.spritecollide(self, other_group, False):
                 if isinstance(sprite, Enemy):
-                    sprite.kill()
-                    player.mana += sprite.mana
+                    sprite.end()
                 if isinstance(sprite, Tile):
                     self.kill()
 
@@ -716,6 +731,7 @@ def outro_play(replay=False):
     for sprite in all_sprites.sprites():
         sprite.kill()
     enemies.clear()
+    bat_sound.stop()
     if level_num < len(levels):
         if not replay:
             player_state = None
