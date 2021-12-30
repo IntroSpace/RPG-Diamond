@@ -24,7 +24,8 @@ mana_font = pygame.font.Font(os.path.abspath('data/fonts/pixeloid_sans.ttf'), ti
 intro_count = None
 s = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
 player_state = None
-NON_COMFORT_ZONE = pygame.Rect(WIDTH * 0.3, HEIGHT * 0.2, WIDTH * 0.4, HEIGHT * 0.6)
+player_mana_state = None
+NON_COMFORT_ZONE = -1, -1
 
 heart_files = ['death', 'onelife', 'halflife', 'almosthalflife', 'fulllife']
 
@@ -298,7 +299,6 @@ class Player(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.mask = pygame.mask.from_surface(self.image)
         self.experience = 0
-        self.mana = 6
         # Атака
         self.attacking = False
         self.attack_frame = 0
@@ -315,6 +315,7 @@ class Player(pygame.sprite.Sprite):
         self.block_right = self.block_left = 0
         self.score = score
         self.heart = 4 if heart is None else heart.heart
+        self.magic_cooldown = 1
 
     def move(self):
         sprite_list = pygame.sprite.spritecollide(self, other_group, False)
@@ -364,6 +365,8 @@ class Player(pygame.sprite.Sprite):
         self.pos.y += dy
 
     def update(self):
+        if len(fireball_group.sprites()) == 0:
+            self.magic_cooldown = 1
         if pygame.key.get_pressed()[pygame.K_SPACE]:
             self.jump()
         if pygame.key.get_pressed()[pygame.K_RETURN] and not self.attacking:
@@ -485,7 +488,10 @@ class Player(pygame.sprite.Sprite):
         else:
             self.heart -= 1
             heart.heart -= 1
-            outro_play(replay=True)
+            if heart.heart >= 0:
+                outro_play(replay=True)
+            else:
+                outro_play(end_of_game=True)
 
 
 class Enemy(pygame.sprite.Sprite):
@@ -556,9 +562,10 @@ class Bat(Enemy):
         self.frame = 1, 0
 
     def end(self):
+        if not self.is_killed():
+            player.experience += 1
+            mana.mana += self.mana
         self.frame = 2, 0
-        player.experience += 1
-        player.mana += self.mana
         if len(enemies) == 1:
             bat_sound.fadeout(1000)
 
@@ -566,8 +573,10 @@ class Bat(Enemy):
         return self.frame[0] == 2
 
     def update(self):
-        if abs(self.rect.x - player.rect.x) <= WIDTH * 0.6 \
-                and abs(self.rect.y - player.rect.y) <= HEIGHT * 0.8:
+        if self.frame[0] == 2:
+            pass
+        elif abs(self.rect.x - player.rect.x) <= NON_COMFORT_ZONE[0] \
+                and abs(self.rect.y - player.rect.y) <= NON_COMFORT_ZONE[1]:
             if not self.angry_state:
                 self.start_angry()
             else:
@@ -673,7 +682,7 @@ class Coin(pygame.sprite.Sprite):
 
 class FireBall(pygame.sprite.Sprite):
     def __init__(self):
-        super().__init__()
+        super().__init__(all_sprites, fireball_group)
         self.direction = player.direction
         if self.direction == "RIGHT":
             self.image = load_image("fire_R.png")
@@ -700,7 +709,6 @@ class FireBall(pygame.sprite.Sprite):
                 self.rect.move_ip(-12, 0)
         else:
             self.kill()
-            player.magic_cooldown = 1
             player.attacking = False
             return
         if pygame.sprite.spritecollide(self, other_group, False):
@@ -716,15 +724,15 @@ class Heart(pygame.sprite.Sprite):
         super(Heart, self).__init__(all_sprites, design_group)
         self.image = life_states[-1][0]
         self.rect = self.image.get_rect(topleft=(tile_size, tile_size))
-        self.heart = len(heart_files)
+        self.heart = len(heart_files) - 1
         self.count = 0
         self.frame = -1
 
     def update(self):
         if self.heart != player.heart:
             self.heart = player.heart
-            self.frame = self.frame % len(life_states[self.heart])
         cur_frames = life_states[self.heart]
+        self.frame = self.frame % len(cur_frames)
         if self.count == 12:
             self.frame = (self.frame + 1) % len(cur_frames)
             self.count = 0
@@ -739,9 +747,10 @@ class Mana(pygame.sprite.Sprite):
         self.image = pygame.transform.scale(load_image('designs/mana.png'),
                                             (0.027 * WIDTH, 0.027 * WIDTH))
         self.rect = self.image.get_rect(topleft=(tile_size + text.get_width(), tile_size * 2))
+        self.mana = 6
 
-    def update(self, *args):
-        text = mana_font.render(str(player.mana), True, MANA_COLOR)
+    def show_score(self):
+        text = mana_font.render(str(self.mana), True, MANA_COLOR)
         text_x = tile_size
         text_y = tile_size * 2
         text_w, text_h = text.get_width() * tile_size / text.get_height(), tile_size
@@ -753,7 +762,15 @@ mana = Mana()
 
 
 def set_difficulty(value, difficulty):
-    pass
+    global NON_COMFORT_ZONE
+    if difficulty == 0:
+        NON_COMFORT_ZONE = -1, -1
+    elif difficulty == 1:
+        NON_COMFORT_ZONE = WIDTH * 0.3, HEIGHT * 0.5
+    elif difficulty == 2:
+        NON_COMFORT_ZONE = WIDTH * 0.5, HEIGHT * 0.6
+    elif difficulty == 3:
+        NON_COMFORT_ZONE = WIDTH * 0.75, HEIGHT * 0.8
 
 
 def load_level_data(filename):
@@ -768,9 +785,11 @@ def load_level_from_list(list_of_levels, num):
 
 
 def intro_play():
-    global intro_count, heart
-    if (heart is None or heart.heart <= 0) and intro_count >= 255:
-        heart = Heart()
+    global intro_count, heart, player, player_mana_state
+    if intro_count >= 255:
+        player_mana_state = mana.mana
+        if heart is None:
+            heart = Heart()
     s.fill((10, 10, 10, intro_count))
     surface.blit(s, (0, 0))
     if intro_count == 225:
@@ -778,29 +797,36 @@ def intro_play():
     intro_count -= 2
 
 
-def outro_play(replay=False):
-    global player, portal, level_num, player_state
-    if replay:
-        level_num -= 1
+def outro_play(replay=False, end_of_game=False):
+    global player, portal, level_num, player_state, heart, mana, player_mana_state
     outro_count = 0
     while outro_count < 255:
         background.render()
         all_sprites.draw(surface)
         player.single_score(surface)
         design_group.draw(surface)
+        mana.show_score()
         s.fill((10, 10, 10, outro_count))
         surface.blit(s, (0, 0))
         pygame.display.flip()
         outro_count += 2
+    if replay:
+        level_num -= 1
+        mana.mana = player_mana_state
+    if end_of_game:
+        player_state = None
+        heart = Heart()
+        mana = Mana()
+        player_mana_state = mana.mana
     for sprite in all_sprites.sprites():
-        if isinstance(sprite, Heart) and sprite.heart > 0:
+        if isinstance(sprite, Heart) and sprite.heart >= 0:
             continue
         if isinstance(sprite, Mana):
             continue
         sprite.kill()
     enemies.clear()
     bat_sound.stop()
-    if level_num < len(levels):
+    if level_num < len(levels) and not end_of_game:
         if not replay:
             player_state = None
         player, portal, level_num = load_level_from_list(levels, level_num)
@@ -818,7 +844,7 @@ levels = ['level1', 'level2', 'level3']
 
 
 def start_the_game():
-    global world, level_num, player, portal, player_state
+    global world, level_num, player, portal, player_state, mana
     world = World((WIDTH, HEIGHT - 100))
     level_num = 0
     player, portal, level_num = load_level_from_list(levels, level_num)
@@ -838,11 +864,10 @@ def start_the_game():
                             player.attack()
                             player.attacking = True
                     if event.button == 3:
-                        if player.mana >= 6:
-                            player.mana -= 6
+                        if mana.mana >= 6 and player.magic_cooldown:
+                            mana.mana -= 6
                             player.attacking = True
-                            fireball = FireBall()
-                            fireball_group.add(fireball)
+                            FireBall()
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_DELETE:
                         world.key_dx = WORLD_VEL
@@ -872,6 +897,7 @@ def start_the_game():
             player.single_score(surface)
             design_group.update()
             design_group.draw(surface)
+            mana.show_score()
             surface.blit(player.image, player.rect)
             if intro_count > 0:
                 intro_play()
@@ -885,7 +911,8 @@ menu = pygame_menu.Menu('Welcome', WIDTH, HEIGHT,
                         theme=pygame_menu.themes.THEME_DARK)
 
 menu.add.text_input('Name: ', default='Player')
-menu.add.selector('Difficulty: ', [('Easy', 1), ('Medium', 2), ('Hard', 3)], onchange=set_difficulty)
+menu.add.selector('Difficulty: ', [('Very Easy', 0), ('Easy', 1), ('Medium', 2), ('Hard', 3)],
+                  onchange=set_difficulty)
 menu.add.button('Play', start_the_game)
 menu.add.button('Quit', pygame_menu.events.EXIT)
 menu.mainloop(surface)
