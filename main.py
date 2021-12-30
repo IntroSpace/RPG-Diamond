@@ -906,7 +906,15 @@ background = Background()
 levels = ['level1', 'level2', 'level3']
 
 
-# skeleton = Enemy(load_image("SkeletonEnemyMove.png"), 0, 3, 100, 100, 12, 1)
+def play_menu():
+    submenu = pygame_menu.Menu('Play', WIDTH, HEIGHT,
+                               theme=pygame_menu.themes.THEME_DARK)
+
+    submenu.add.selector('Difficulty: ', [('Very Easy', 0), ('Easy', 1), ('Medium', 2), ('Hard', 3)],
+                         onchange=set_difficulty)
+    submenu.add.button('Play', start_the_game)
+    submenu.add.button('Back', submenu.disable)
+    submenu.mainloop(surface)
 
 
 def start_the_game():
@@ -984,12 +992,17 @@ def start_the_game():
         end_the_game()
 
 
+def start_tutorial():
+    pass
+
+
 menu = pygame_menu.Menu('Welcome', WIDTH, HEIGHT,
                         theme=pygame_menu.themes.THEME_DARK)
 
-menu.add.text_input('Name: ', default='Player')
-menu.add.selector('Difficulty: ', [('Very Easy', 0), ('Easy', 1), ('Medium', 2), ('Hard', 3)],
-                  onchange=set_difficulty)
-menu.add.button('Play', start_the_game)
+text_input = menu.add.text_input('Name: ', default='Player')
+
+
+menu.add.button('Play', play_menu)
+menu.add.button('Tutorial', start_tutorial)
 menu.add.button('Quit', pygame_menu.events.EXIT)
 menu.mainloop(surface)
