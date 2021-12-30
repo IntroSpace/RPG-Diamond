@@ -20,6 +20,7 @@ MAX_WORLD_VEL = 5
 pygame.display.set_caption("Game")
 tile_size = HEIGHT // 20
 game_font = pygame.font.Font(os.path.abspath('data/fonts/pixeloid_sans.ttf'), 35)
+mana_font = pygame.font.Font(os.path.abspath('data/fonts/pixeloid_sans.ttf'), tile_size)
 intro_count = None
 s = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
 player_state = None
@@ -44,6 +45,7 @@ pygame.mixer.music.play(-1)
 
 TEXT_COLOR = pygame.Color(115, 125, 125)
 TEXT_SHIFT = game_font.render(f'Your score: 0   ©', True, TEXT_COLOR).get_width() // 1.4 + 15
+MANA_COLOR = pygame.Color(49, 105, 168)
 
 enemies = list()
 
@@ -730,7 +732,24 @@ class Heart(pygame.sprite.Sprite):
         self.image = cur_frames[self.frame]
 
 
+class Mana(pygame.sprite.Sprite):
+    def __init__(self):
+        super(Mana, self).__init__(all_sprites, design_group)
+        text = mana_font.render(str(10), True, MANA_COLOR)
+        self.image = pygame.transform.scale(load_image('designs/mana.png'),
+                                            (0.027 * WIDTH, 0.027 * WIDTH))
+        self.rect = self.image.get_rect(topleft=(tile_size + text.get_width(), tile_size * 2))
+
+    def update(self, *args):
+        text = mana_font.render(str(player.mana), True, MANA_COLOR)
+        text_x = tile_size
+        text_y = tile_size * 2
+        text_w, text_h = text.get_width() * tile_size / text.get_height(), tile_size
+        surface.blit(pygame.transform.smoothscale(text, (text_w, text_h)), (text_x, text_y))
+
+
 heart = None
+mana = Mana()
 
 
 def set_difficulty(value, difficulty):
@@ -775,6 +794,8 @@ def outro_play(replay=False):
         outro_count += 2
     for sprite in all_sprites.sprites():
         if isinstance(sprite, Heart) and sprite.heart > 0:
+            continue
+        if isinstance(sprite, Mana):
             continue
         sprite.kill()
     enemies.clear()
