@@ -87,6 +87,19 @@ def load_image(name, colorkey=None):
     return image
 
 
+def cut_sheet(name, columns):
+    sheet = load_image(name)
+    sprite_rect = pygame.Rect(0, 0, sheet.get_width() // columns,
+                              sheet.get_height())
+    frames = []
+    rect = pygame.Rect(0, 0, tile_size, tile_size)
+    for i in range(columns):
+        frame_location = (sprite_rect.w * i, 0)
+        frames.append(pygame.transform.scale(sheet.subsurface(pygame.Rect(
+            frame_location, sprite_rect.size)), rect.size))
+    return frames
+
+
 run_animation_RIGHT = [load_image("Player_Sprite_R.png"), load_image("Player_Sprite2_R.png"),
                        load_image("Player_Sprite3_R.png"), load_image("Player_Sprite4_R.png"),
                        load_image("Player_Sprite5_R.png"), load_image("Player_Sprite6_R.png")]
@@ -106,6 +119,9 @@ attack_animation_LEFT = [load_image("Player_Sprite_L.png"), load_image("Player_A
                          load_image("Player_Attack3_L.png"), load_image("Player_Attack3_L.png"),
                          load_image("Player_Attack4_L.png"), load_image("Player_Attack4_L.png"),
                          load_image("Player_Attack5_L.png"), load_image("Player_Attack5_L.png")]
+
+bomb_idle = cut_sheet('bomb/bomb_idle.png', 2)
+bomb_walk = cut_sheet('bomb/bomb_walk.png', 6)
 
 life_states = [[] for i in range(len(heart_files))]
 for i, directory in enumerate(heart_files):
@@ -298,6 +314,8 @@ class Level:
                     enemies.append(Bat((x, y)))
                     bat_sound.stop()
                     bat_sound.play(-1)
+                if tile == 'Y':
+                    enemies.append(Bomby((x, y)))
         return res_player, main_portal
 
 
@@ -509,8 +527,11 @@ class Player(pygame.sprite.Sprite):
 
 
 class Enemy(pygame.sprite.Sprite):
-    def __init__(self, sheet: pygame.Surface, direction: int, velocity: int, x: int, y: int, columns: int, rows: int):
+    def __init__(self, sheet: pygame.Surface, direction: int,
+                 velocity: int, x: int, y: int, columns: int, rows: int, skip=False):
         super().__init__(all_sprites, other_group, enemy_group)
+        if skip:
+            return
         self.frames = []
         self.direction = direction
         self.cut_sheet(sheet, columns, rows)
@@ -617,6 +638,102 @@ class Bat(Enemy):
     def start_angry(self):
         self.angry_state = True
         self.frame = 0, self.frame[1]
+
+    def stop_angry(self):
+        self.angry_state = False
+        self.frame = 1, self.frame[1]
+
+    def angry(self):
+        if self.frame[0] == 2:
+            return
+        delta = (self.velocity.x - 1) // 2
+        if self.rect.y - delta <= player.rect.y <= self.rect.y + delta:
+            if player.attacking:
+                self.position.y -= self.angry_vel.y
+        elif self.rect.y < player.rect.y:
+            if player.attacking:
+                self.position.y -= self.angry_vel.y
+            else:
+                self.position.y += self.angry_vel.y
+        else:
+            if player.attacking:
+                self.position.y += self.angry_vel.y
+            else:
+                self.position.y -= self.angry_vel.y
+        self.rect.topleft = self.position
+        if self.rect.x - delta <= player.rect.x <= self.rect.x + delta:
+            if player.attacking:
+                self.direction = 1
+            else:
+                return
+        if self.rect.x < player.rect.x:
+            if player.attacking:
+                self.direction = -1
+            else:
+                self.direction = 1
+        elif self.rect.x > player.rect.x:
+            if player.attacking:
+                self.direction = 1
+            else:
+                self.direction = -1
+        # ИИ во время "злости"
+        if self.direction == 1:
+            self.position.x += self.angry_vel.x
+        if self.direction == -1:
+            self.position.x -= self.angry_vel.x
+        self.rect.topleft = self.position
+
+
+class Bomby(Enemy):
+    def __init__(self, pos, angry_vel=(2, 1)):
+        super(Bomby, self).__init__(0, 0, 0, 0, 0, 0, 0, skip=True)
+        self.frames = []
+        self.direction = 1
+        self.frames = [bomb_idle, bomb_walk]
+        self.columns = 2
+        self.mana = 3
+        self.start()
+        self.image = self.frames[self.frame[0]][self.frame[1]]
+        self.rect = self.image.get_rect(topleft=(pos[0] * tile_size, pos[1] * tile_size))
+        self.velocity = vec(0, 0)
+        self.position = vec(pos[0] * tile_size, pos[1] * tile_size)
+        self.velocity.x = 5
+        self.count = 0
+        self.delta_x = 0
+        self.angry_state = False
+        self.angry_vel = vec(*angry_vel)
+
+    def start(self):
+        self.frame = 1, 0
+
+    def end(self):
+        if not self.is_killed():
+            player.experience += 1
+            mana.mana += self.mana
+        self.frame = 2, 0
+
+    def is_killed(self):
+        return self.frame[0] == 2
+
+    def update(self):
+        if self.count == 6:
+            self.count = 0
+            self.move()
+            self.frame = self.frame[0], self.frame[1] + 1
+            self.image = self.frames[self.frame[0]][self.frame[1]]
+            if self.direction == -1:
+                self.image = pygame.transform.flip(self.image, True, False)
+        self.count += 1
+        if self.frame[1] == len(self.frames[self.frame[0]]) - 1:
+            # if self.frame[0] == 2:
+            #     del enemies[enemies.index(self)]
+            #     self.kill()
+            #     return
+            self.frame = self.frame[0], -1
+
+    def start_angry(self):
+        self.angry_state = True
+        self.frame = 1, self.frame[1]
 
     def stop_angry(self):
         self.angry_state = False
