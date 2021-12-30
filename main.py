@@ -7,8 +7,7 @@ import pygame_menu
 
 pygame.init()
 WIDTH, HEIGHT = 1920, 1080
-surface = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.key.set_repeat(1, 20)
+surface = pygame.display.set_mode((WIDTH, HEIGHT), pygame.FULLSCREEN)
 ACC = 0.4
 FRIC = -0.10
 COUNT = 0
@@ -26,6 +25,10 @@ s = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
 player_state = None
 player_mana_state = None
 NON_COMFORT_ZONE = -1, -1
+max_values = [0, 0]
+enemies_killed = 0
+results = None
+prev_level_num = None
 
 heart_files = ['death', 'onelife', 'halflife', 'almosthalflife', 'fulllife']
 
@@ -45,6 +48,7 @@ pygame.mixer.music.load('data/sounds/background_music.wav')
 pygame.mixer.music.play(-1)
 
 TEXT_COLOR = pygame.Color(115, 125, 125)
+END_TEXT_COLOR = 245, 245, 245
 TEXT_SHIFT = game_font.render(f'Your score: 0   ©', True, TEXT_COLOR).get_width() // 1.4 + 15
 MANA_COLOR = pygame.Color(49, 105, 168)
 
@@ -265,7 +269,8 @@ class Portal(Tile):
 
 class Level:
     @staticmethod
-    def new_level(data):
+    def new_level(data, replay=False):
+        global max_values
         res_player = None
         main_portal = None
         for y, row in enumerate(data):
@@ -284,8 +289,12 @@ class Level:
                 if tile == 'E':
                     main_portal = Portal(load_image('green_portal.png'), (x, y), (3, 8))
                 if tile == 'C':
+                    if not replay:
+                        max_values[0] += 1
                     Coin((x, y))
                 if tile == 'B':
+                    if not replay:
+                        max_values[1] += 1
                     enemies.append(Bat((x, y)))
                     bat_sound.stop()
                     bat_sound.play(-1)
@@ -484,6 +493,8 @@ class Player(pygame.sprite.Sprite):
         if enemy.is_killed():
             return
         if self.attacking:
+            global enemies_killed
+            enemies_killed += 1
             enemy.end()
         else:
             self.heart -= 1
@@ -492,6 +503,9 @@ class Player(pygame.sprite.Sprite):
                 outro_play(replay=True)
             else:
                 outro_play(end_of_game=True)
+
+    def get_results(self):
+        return self.score, enemies_killed
 
 
 class Enemy(pygame.sprite.Sprite):
@@ -729,8 +743,6 @@ class Heart(pygame.sprite.Sprite):
         self.frame = -1
 
     def update(self):
-        if self.heart != player.heart:
-            self.heart = player.heart
         cur_frames = life_states[self.heart]
         self.frame = self.frame % len(cur_frames)
         if self.count == 12:
@@ -774,10 +786,12 @@ def set_difficulty(value, difficulty):
 
 
 def load_level_data(filename):
-    global intro_count
+    global intro_count, prev_level_num
+    replay = prev_level_num == level_num
+    prev_level_num = level_num
     intro_count = 255
     with open(f'levels/{filename}.map', mode='r', encoding='utf8') as f:
-        return Level.new_level(map(str.strip, f.readlines()))
+        return Level.new_level(map(str.strip, f.readlines()), replay=replay)
 
 
 def load_level_from_list(list_of_levels, num):
@@ -813,11 +827,6 @@ def outro_play(replay=False, end_of_game=False):
     if replay:
         level_num -= 1
         mana.mana = player_mana_state
-    if end_of_game:
-        player_state = None
-        heart = Heart()
-        mana = Mana()
-        player_mana_state = mana.mana
     for sprite in all_sprites.sprites():
         if isinstance(sprite, Heart) and sprite.heart >= 0:
             continue
@@ -831,8 +840,65 @@ def outro_play(replay=False, end_of_game=False):
             player_state = None
         player, portal, level_num = load_level_from_list(levels, level_num)
     else:
+        save_results()
         player = None
     player_state = player.score
+
+
+def save_results():
+    global results
+    results = player.get_results()
+
+
+def end_the_game():
+    pressed = False
+    counter, direction = 255, -1
+    while not pressed:
+        surface.fill((45, 40, 40))
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                return
+        center_x = WIDTH // 2
+        center_y = HEIGHT // 2
+        text = mana_font.render(f'{max(heart.heart, 0)} of {len(life_states) - 1} lifes',
+                                True, END_TEXT_COLOR)
+        text_h = HEIGHT * 0.049
+        text_w = text.get_width() * text_h / text.get_height()
+        surface.blit(pygame.transform.smoothscale(text, (text_w, text_h)),
+                     (center_x - text_w // 2, center_y - text_h * 3))
+
+        text = mana_font.render(f'{results[0]} of {max_values[0]} coins', True, END_TEXT_COLOR)
+        text_h = HEIGHT * 0.048
+        text_w = text.get_width() * text_h / text.get_height()
+        surface.blit(pygame.transform.smoothscale(text, (text_w, text_h)),
+                     (center_x - text_w // 2, center_y - text_h * 2))
+
+        text = mana_font.render(f'{results[1]} of {max_values[1]} enemies', True, END_TEXT_COLOR)
+        text_h = HEIGHT * 0.046
+        text_w = text.get_width() * text_h / text.get_height()
+        surface.blit(pygame.transform.smoothscale(text, (text_w, text_h)),
+                     (center_x - text_w // 2, center_y - text_h))
+        text = mana_font.render(f'{level_num} of {len(levels)} levels', True, END_TEXT_COLOR)
+        text_h = HEIGHT * 0.044
+        text_w = text.get_width() * text_h / text.get_height()
+        surface.blit(pygame.transform.smoothscale(text, (text_w, text_h)),
+                     (center_x - text_w // 2, center_y))
+
+        text = mana_font.render(f'Press any key to continue...',
+                                True, pygame.Color(*END_TEXT_COLOR, counter))
+        text_h = HEIGHT * 0.052
+        text_w = text.get_width() * text_h / text.get_height()
+        surface.blit(pygame.transform.smoothscale(text, (text_w, text_h)),
+                     (center_x - text_w // 2, HEIGHT * 0.94 - text_h))
+
+        counter += direction
+        if counter in [0, 255]:
+            direction *= -1
+        pygame.display.flip()
+        FPS_CLOCK.tick(FPS)
 
 
 world = level_num = player = portal = None
@@ -844,9 +910,16 @@ levels = ['level1', 'level2', 'level3']
 
 
 def start_the_game():
-    global world, level_num, player, portal, player_state, mana
+    global world, level_num, player, portal, player_state, mana,\
+        heart, player_mana_state, max_values, enemies_killed, prev_level_num
     world = World((WIDTH, HEIGHT - 100))
+    prev_level_num = -1
     level_num = 0
+    heart = Heart()
+    mana = Mana()
+    player_mana_state = mana.mana
+    max_values = [0, 0]
+    enemies_killed = 0
     player, portal, level_num = load_level_from_list(levels, level_num)
     player_state = player.score
     running = True
@@ -868,11 +941,14 @@ def start_the_game():
                             mana.mana -= 6
                             player.attacking = True
                             FireBall()
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_DELETE:
-                        world.key_dx = WORLD_VEL
-                    if event.key == pygame.K_PAGEDOWN:
-                        world.key_dx = - WORLD_VEL
+            keys = pygame.key.get_pressed()
+            if keys[pygame.K_ESCAPE]:
+                running = False
+                break
+            if keys[pygame.K_DELETE]:
+                world.key_dx = WORLD_VEL
+            if keys[pygame.K_PAGEDOWN]:
+                world.key_dx = - WORLD_VEL
             surface.fill((0, 0, 0))
             player.update()
             if player.attacking:
@@ -905,6 +981,7 @@ def start_the_game():
             FPS_CLOCK.tick(FPS)
     except AttributeError:
         FPS_CLOCK.tick(0.5)
+        end_the_game()
 
 
 menu = pygame_menu.Menu('Welcome', WIDTH, HEIGHT,
