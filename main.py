@@ -123,6 +123,7 @@ attack_animation_LEFT = [load_image("Player_Sprite_L.png"), load_image("Player_A
 bomb_idle = cut_sheet('bomb/bomb_idle.png', 2)
 bomb_walk = cut_sheet('bomb/bomb_walk.png', 6)
 bomb_fall_down = cut_sheet('bomb/bomb_fall_down.png', 1)
+bomb_jump_up = cut_sheet('bomb/bomb_jump_up.png', 1)
 
 life_states = [[] for i in range(len(heart_files))]
 for i, directory in enumerate(heart_files):
@@ -608,7 +609,7 @@ class Bat(Enemy):
             player.experience += 1
             mana.mana += self.mana
         self.frame = 2, 0
-        if len(Enemy.bats) == 1:
+        if Enemy.bats == 1:
             bat_sound.fadeout(1000)
 
     def is_killed(self):
@@ -697,15 +698,16 @@ class Bomby(Enemy):
         super(Bomby, self).__init__(0, 0, 0, 0, 0, 0, 0, skip=True)
         self.frames = []
         self.direction = 1
-        self.frames = [bomb_idle, bomb_walk, bomb_fall_down]
+        self.frames = [bomb_idle, bomb_walk, bomb_fall_down, bomb_jump_up]
         self.columns = 2
         self.mana = 3
         self.start()
         self.image = self.frames[self.frame[0]][self.frame[1]]
         self.rect = self.image.get_rect(topleft=(pos[0] * tile_size, pos[1] * tile_size))
         self.vel = vec(0, 0)
+        self.jumping = False
         self.position = vec(pos[0] * tile_size, pos[1] * tile_size)
-        self.vel.x = 0.85
+        self.vel.x = 1
         self.count = 0
         self.delta_x = 0
         self.angry_state = False
@@ -725,19 +727,25 @@ class Bomby(Enemy):
         return self.frame[0] == 2
 
     def update(self):
+        if not self.jumping and pygame.key.get_pressed()[pygame.K_y]:
+            self.jump()
         self.move()
         self.move_y()
-        if self.vel.y > 1:
+        if int(self.vel.y) > 1:
             self.image = self.frames[2][0]
+            if self.direction == -1:
+                self.image = pygame.transform.flip(self.image, True, False)
+        elif self.vel.y < -1:
+            self.image = self.frames[3][0]
             if self.direction == -1:
                 self.image = pygame.transform.flip(self.image, True, False)
         else:
             if self.count == 6:
                 self.count = 0
                 self.frame = self.frame[0], self.frame[1] + 1
-                self.image = self.frames[self.frame[0]][self.frame[1]]
-                if self.direction == -1:
-                    self.image = pygame.transform.flip(self.image, True, False)
+            self.image = self.frames[self.frame[0]][self.frame[1]]
+            if self.direction == -1:
+                self.image = pygame.transform.flip(self.image, True, False)
             self.count += 1
             if self.frame[1] == len(self.frames[self.frame[0]]) - 1:
                 self.frame = self.frame[0], -1
@@ -749,23 +757,23 @@ class Bomby(Enemy):
         sprite_list = pygame.sprite.spritecollide(self, tiles_group, False)
         if not sprite_list:
             if self.direction != -1:
-                self.rect.right += 1
+                self.rect.right += 5
                 for sprite in pygame.sprite.spritecollide(self, tiles_group, False):
                     if isinstance(sprite, Portal):
                         continue
                     rect = sprite.rect
                     if rect.collidepoint(self.rect.midright):
                         self.direction = -1
-                self.rect.right -= 1
+                self.rect.right -= 5
             if self.direction != 1:
-                self.rect.left -= 1
+                self.rect.left -= 5
                 for sprite in pygame.sprite.spritecollide(self, tiles_group, False):
                     if isinstance(sprite, Portal):
                         continue
                     rect = sprite.rect
                     if rect.collidepoint(self.rect.midleft):
                         self.direction = 1
-                self.rect.left += 1
+                self.rect.left += 5
         # ИИ врага
         if self.direction == 1:
             self.position.x += self.vel.x
@@ -789,23 +797,28 @@ class Bomby(Enemy):
         self.position.y += int(0.5 * self.acc.y)
         self.rect.topleft = self.position
 
+    def jump(self):
+        if not self.jumping:
+            self.jumping = True
+            self.vel.y = -12
+
     def gravity_check(self):
-        if self.vel.y > 0 or self.acc.y > 0:
-            if pygame.sprite.spritecollide(self, tiles_group, False):
-                for sprite in pygame.sprite.spritecollide(self, tiles_group, False):
-                    self.vel.y = self.acc.y = 0
-                    self.rect.bottom = sprite.rect.top
-                    self.position.y = self.rect.top
-        elif self.vel.y < 0:
+        if self.vel.y > 0:
             if pygame.sprite.spritecollide(self, tiles_group, False):
                 for sprite in pygame.sprite.spritecollide(self, tiles_group, False):
                     if isinstance(sprite, Portal):
                         continue
-                    if sprite.rect.collidepoint(self.rect.topleft[0] + 5, self.rect.topleft[1]) \
-                            or sprite.rect.collidepoint(self.rect.topright[0] - 5, self.rect.topright[1]):
-                        self.vel.y *= -1
-                        self.acc.y *= -1
-                        break
+                    self.jumping = False
+                    self.vel.y = self.acc.y = 0
+                    self.rect.bottom = sprite.rect.top
+                    self.position.y = self.rect.top
+        elif self.vel.y < 0:
+            sprite = pygame.sprite.spritecollide(self, tiles_group, False)
+            if sprite:
+                if isinstance(sprite[0], Portal):
+                    return
+                self.vel.y *= -1
+                self.acc.y *= -1
 
 
 class Coin(pygame.sprite.Sprite):
@@ -998,7 +1011,7 @@ def save_results():
 
 def end_the_game():
     pressed = False
-    counter, direction = 255, -1
+    counter, direction = 255, -3
     while not pressed:
         surface.fill((45, 40, 40))
         for event in pygame.event.get():
@@ -1034,7 +1047,8 @@ def end_the_game():
                      (center_x - text_w // 2, center_y))
 
         text = mana_font.render(f'Press any key to continue...',
-                                True, pygame.Color(*END_TEXT_COLOR, counter))
+                                True, END_TEXT_COLOR)
+        text.set_alpha(counter)
         text_h = HEIGHT * 0.052
         text_w = text.get_width() * text_h / text.get_height()
         surface.blit(pygame.transform.smoothscale(text, (text_w, text_h)),
@@ -1058,7 +1072,7 @@ def play_menu():
 
     submenu.add.selector('Difficulty: ', [('Very Easy', 0), ('Easy', 1), ('Medium', 2), ('Hard', 3)],
                          onchange=set_difficulty)
-    submenu.add.button('Play', start_the_game)
+    submenu.select_widget(submenu.add.button('Play', start_the_game))
     submenu.add.button('Back', submenu.disable)
     submenu.mainloop(surface)
 
