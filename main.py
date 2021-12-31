@@ -313,9 +313,12 @@ class Level:
                     if not replay:
                         max_values[1] += 1
                     enemies.append(Bat((x, y)))
+                    Enemy.bats += 1
                     bat_sound.stop()
                     bat_sound.play(-1)
                 if tile == 'Y':
+                    if not replay:
+                        max_values[1] += 1
                     enemies.append(Bomby((x, y)))
         return res_player, main_portal
 
@@ -528,6 +531,8 @@ class Player(pygame.sprite.Sprite):
 
 
 class Enemy(pygame.sprite.Sprite):
+    bats = 0
+
     def __init__(self, sheet: pygame.Surface, direction: int,
                  velocity: int, x: int, y: int, columns: int, rows: int, skip=False):
         super().__init__(all_sprites, other_group, enemy_group)
@@ -602,7 +607,7 @@ class Bat(Enemy):
             player.experience += 1
             mana.mana += self.mana
         self.frame = 2, 0
-        if len(enemies) == 1:
+        if len(Enemy.bats) == 1:
             bat_sound.fadeout(1000)
 
     def is_killed(self):
@@ -632,6 +637,7 @@ class Bat(Enemy):
         if self.frame[1] == self.columns - 1:
             if self.frame[0] == 2:
                 del enemies[enemies.index(self)]
+                Enemy.bats -= 1
                 self.kill()
                 return
             self.frame = self.frame[0], -1
@@ -698,7 +704,7 @@ class Bomby(Enemy):
         self.rect = self.image.get_rect(topleft=(pos[0] * tile_size, pos[1] * tile_size))
         self.vel = vec(0, 0)
         self.position = vec(pos[0] * tile_size, pos[1] * tile_size)
-        self.vel.x = 5
+        self.vel.x = 0.85
         self.count = 0
         self.delta_x = 0
         self.angry_state = False
@@ -718,40 +724,42 @@ class Bomby(Enemy):
         return self.frame[0] == 2
 
     def update(self):
-        self.move_y()
         if self.count == 6:
             self.count = 0
-            self.move()
             self.frame = self.frame[0], self.frame[1] + 1
             self.image = self.frames[self.frame[0]][self.frame[1]]
             if self.direction == -1:
                 self.image = pygame.transform.flip(self.image, True, False)
         self.count += 1
         if self.frame[1] == len(self.frames[self.frame[0]]) - 1:
-            # if self.frame[0] == 2:
-            #     del enemies[enemies.index(self)]
-            #     self.kill()
-            #     return
             self.frame = self.frame[0], -1
+        self.move()
+        self.move_y()
 
     def move(self):
-        if 2 * tile_size - (self.vel.x - 1) // 2 <= abs(self.delta_x) \
-                <= 2 * tile_size + (self.vel.x - 1) // 2:
+        if 2 * tile_size - self.vel.x <= abs(self.delta_x) \
+                <= 2 * tile_size + self.vel.x:
             self.direction = self.direction * -1
         sprite_list = pygame.sprite.spritecollide(self, tiles_group, False)
-        self.block_right = self.block_left = 0
-        if sprite_list:
-            self.mask = pygame.mask.from_surface(self.image)
-            for sprite in sprite_list:
-                if isinstance(sprite, Portal):
-                    continue
-                rect = sprite.rect
-                mr = self.rect.midright
-                if self.direction != -1 and rect.collidepoint(mr[0] + 1, mr[1]):
-                    self.direction *= -1
-                ml = self.rect.midleft
-                if self.direction != 1 and rect.collidepoint(ml[0] - 1, ml[1]):
-                    self.direction *= -1
+        if not sprite_list:
+            if self.direction != -1:
+                self.rect.right += 1
+                for sprite in pygame.sprite.spritecollide(self, tiles_group, False):
+                    if isinstance(sprite, Portal):
+                        continue
+                    rect = sprite.rect
+                    if rect.collidepoint(self.rect.midright):
+                        self.direction = -1
+                self.rect.right -= 1
+            if self.direction != 1:
+                self.rect.left -= 1
+                for sprite in pygame.sprite.spritecollide(self, tiles_group, False):
+                    if isinstance(sprite, Portal):
+                        continue
+                    rect = sprite.rect
+                    if rect.collidepoint(self.rect.midleft):
+                        self.direction = 1
+                self.rect.left += 1
         # ИИ врага
         if self.direction == 1:
             self.position.x += self.vel.x
@@ -771,40 +779,21 @@ class Bomby(Enemy):
         self.acc = vec(0, 0.5)
         self.vel += self.acc
         self.gravity_check()
-        self.position.y += self.vel.y
-        self.position += 0.5 * self.acc
+        self.position.y += int(self.vel.y)
+        self.position.y += int(0.5 * self.acc.y)
         self.rect.topleft = self.position
 
     def gravity_check(self):
         if self.vel.y > 0 or self.acc.y > 0:
             if pygame.sprite.spritecollide(self, tiles_group, False):
-                self.mask = pygame.mask.from_surface(self.image)
                 for sprite in pygame.sprite.spritecollide(self, tiles_group, False):
-                    if isinstance(sprite, Portal):
-                        continue
-                    if isinstance(sprite, Coin):
-                        continue
-                    if (sprite.rect.collidepoint(self.rect.bottomleft[0] + 5, self.rect.bottomleft[1] + 1)
-                        and not sprite.rect.collidepoint(self.rect.bottomleft[0] + 5, self.rect.bottomleft[1]))\
-                            or (sprite.rect.collidepoint(self.rect.bottomright[0] - 5, self.rect.bottomright[1] + 1)
-                                and not sprite.rect.collidepoint(self.rect.bottomright[0] - 5,
-                                                                 self.rect.bottomright[1])):
-                        self.position.y = self.rect.y - (self.rect.bottom - sprite.rect.y)
-                        self.vel.y = self.acc.y = 0
-                        self.jumping = False
-                        break
-                    elif pygame.sprite.collide_mask(self, sprite):
-                        self.position.y = self.rect.y - (self.rect.bottom - sprite.rect.y)
-                        self.vel.y = self.acc.y = 0
-                        self.jumping = False
-                        break
+                    self.vel.y = self.acc.y = 0
+                    self.rect.bottom = sprite.rect.top
+                    self.position.y = self.rect.top
         elif self.vel.y < 0:
             if pygame.sprite.spritecollide(self, tiles_group, False):
-                self.mask = pygame.mask.from_surface(self.image)
                 for sprite in pygame.sprite.spritecollide(self, tiles_group, False):
                     if isinstance(sprite, Portal):
-                        continue
-                    if isinstance(sprite, Coin):
                         continue
                     if sprite.rect.collidepoint(self.rect.topleft[0] + 5, self.rect.topleft[1]) \
                             or sprite.rect.collidepoint(self.rect.topright[0] - 5, self.rect.topright[1]):
@@ -984,6 +973,7 @@ def outro_play(replay=False, end_of_game=False):
             continue
         sprite.kill()
     enemies.clear()
+    Enemy.bats = 0
     bat_sound.stop()
     if level_num < len(levels) and not end_of_game:
         if not replay:
@@ -1137,7 +1127,7 @@ def start_the_game():
                 intro_play()
             pygame.display.flip()
             FPS_CLOCK.tick(FPS)
-    except FileNotFoundError:
+    except AttributeError:
         FPS_CLOCK.tick(0.5)
         end_the_game()
 
