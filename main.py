@@ -7,7 +7,7 @@ import pygame_menu
 
 pygame.init()
 WIDTH, HEIGHT = 1920, 1080
-surface = pygame.display.set_mode((WIDTH, HEIGHT), pygame.FULLSCREEN)
+surface = pygame.display.set_mode((WIDTH, HEIGHT))
 ACC = 0.4
 FRIC = -0.10
 COUNT = 0
@@ -201,6 +201,7 @@ class Tile(pygame.sprite.Sprite):
             super(Tile, self).__init__(all_sprites, tiles_group, *groups)
             self.image = pygame.transform.scale(load_image(name), (tile_size, tile_size))
             self.rect = self.image.get_rect(topleft=(pos[0] * tile_size, pos[1] * tile_size))
+            self.mask = pygame.mask.from_surface(self.image)
 
 
 class Land(Tile):
@@ -540,9 +541,9 @@ class Enemy(pygame.sprite.Sprite):
         self.frame = 0, 0
         self.image = self.frames[self.frame[0] * self.columns + self.frame[1]]
         self.rect = self.image.get_rect(topleft=(x, y))
-        self.velocity = vec(0, 0)
+        self.vel = vec(0, 0)
         self.position = vec(x, y)
-        self.velocity.x = velocity
+        self.vel.x = velocity
         self.count = 0
         self.delta_x = 0
 
@@ -569,16 +570,16 @@ class Enemy(pygame.sprite.Sprite):
         self.count += 1
 
     def move(self):
-        if 2 * tile_size - (self.velocity.x - 1) // 2 <= abs(self.delta_x) \
-                <= 2 * tile_size + (self.velocity.x - 1) // 2:
+        if 2 * tile_size - (self.vel.x - 1) // 2 <= abs(self.delta_x) \
+                <= 2 * tile_size + (self.vel.x - 1) // 2:
             self.direction = self.direction * -1
         # ИИ врага
         if self.direction == 1:
-            self.position.x += self.velocity.x
-            self.delta_x -= self.velocity.x
+            self.position += self.vel
+            self.delta_x -= self.vel.x
         if self.direction == -1:
-            self.position.x -= self.velocity.x
-            self.delta_x += self.velocity.x
+            self.position -= self.vel
+            self.delta_x += self.vel.x
         self.rect.topleft = self.position
 
     def world_shift(self, dx, dy):
@@ -646,7 +647,7 @@ class Bat(Enemy):
     def angry(self):
         if self.frame[0] == 2:
             return
-        delta = (self.velocity.x - 1) // 2
+        delta = (self.vel.x - 1) // 2
         if self.rect.y - delta <= player.rect.y <= self.rect.y + delta:
             if player.attacking:
                 self.position.y -= self.angry_vel.y
@@ -695,13 +696,14 @@ class Bomby(Enemy):
         self.start()
         self.image = self.frames[self.frame[0]][self.frame[1]]
         self.rect = self.image.get_rect(topleft=(pos[0] * tile_size, pos[1] * tile_size))
-        self.velocity = vec(0, 0)
+        self.vel = vec(0, 0)
         self.position = vec(pos[0] * tile_size, pos[1] * tile_size)
-        self.velocity.x = 5
+        self.vel.x = 5
         self.count = 0
         self.delta_x = 0
         self.angry_state = False
         self.angry_vel = vec(*angry_vel)
+        self.acc = vec(0, 0)
 
     def start(self):
         self.frame = 1, 0
@@ -716,6 +718,7 @@ class Bomby(Enemy):
         return self.frame[0] == 2
 
     def update(self):
+        self.move_y()
         if self.count == 6:
             self.count = 0
             self.move()
@@ -731,53 +734,83 @@ class Bomby(Enemy):
             #     return
             self.frame = self.frame[0], -1
 
-    def start_angry(self):
-        self.angry_state = True
-        self.frame = 1, self.frame[1]
-
-    def stop_angry(self):
-        self.angry_state = False
-        self.frame = 1, self.frame[1]
-
-    def angry(self):
-        if self.frame[0] == 2:
-            return
-        delta = (self.velocity.x - 1) // 2
-        if self.rect.y - delta <= player.rect.y <= self.rect.y + delta:
-            if player.attacking:
-                self.position.y -= self.angry_vel.y
-        elif self.rect.y < player.rect.y:
-            if player.attacking:
-                self.position.y -= self.angry_vel.y
-            else:
-                self.position.y += self.angry_vel.y
-        else:
-            if player.attacking:
-                self.position.y += self.angry_vel.y
-            else:
-                self.position.y -= self.angry_vel.y
-        self.rect.topleft = self.position
-        if self.rect.x - delta <= player.rect.x <= self.rect.x + delta:
-            if player.attacking:
-                self.direction = 1
-            else:
-                return
-        if self.rect.x < player.rect.x:
-            if player.attacking:
-                self.direction = -1
-            else:
-                self.direction = 1
-        elif self.rect.x > player.rect.x:
-            if player.attacking:
-                self.direction = 1
-            else:
-                self.direction = -1
-        # ИИ во время "злости"
+    def move(self):
+        if 2 * tile_size - (self.vel.x - 1) // 2 <= abs(self.delta_x) \
+                <= 2 * tile_size + (self.vel.x - 1) // 2:
+            self.direction = self.direction * -1
+        sprite_list = pygame.sprite.spritecollide(self, tiles_group, False)
+        self.block_right = self.block_left = 0
+        if sprite_list:
+            self.mask = pygame.mask.from_surface(self.image)
+            for sprite in sprite_list:
+                if isinstance(sprite, Portal):
+                    continue
+                rect = sprite.rect
+                mr = self.rect.midright
+                if self.direction != -1 and rect.collidepoint(mr[0] + 1, mr[1]):
+                    self.direction *= -1
+                ml = self.rect.midleft
+                if self.direction != 1 and rect.collidepoint(ml[0] - 1, ml[1]):
+                    self.direction *= -1
+        # ИИ врага
         if self.direction == 1:
-            self.position.x += self.angry_vel.x
+            self.position.x += self.vel.x
+            self.delta_x -= self.vel.x
         if self.direction == -1:
-            self.position.x -= self.angry_vel.x
+            self.position.x -= self.vel.x
+            self.delta_x += self.vel.x
+        # if self.block_left:
+        #     if self.vel.x < 0 or (self.vel.x == 0 and self.acc.x < 0):
+        #         self.acc.x = self.vel.x = 0
+        # if self.block_right:
+        #     if self.vel.x > 0 or (self.vel.x == 0 and self.acc.x > 0):
+        #         self.acc.x = self.vel.x = 0
         self.rect.topleft = self.position
+
+    def move_y(self):
+        self.acc = vec(0, 0.5)
+        self.vel += self.acc
+        self.gravity_check()
+        self.position.y += self.vel.y
+        self.position += 0.5 * self.acc
+        self.rect.topleft = self.position
+
+    def gravity_check(self):
+        if self.vel.y > 0 or self.acc.y > 0:
+            if pygame.sprite.spritecollide(self, tiles_group, False):
+                self.mask = pygame.mask.from_surface(self.image)
+                for sprite in pygame.sprite.spritecollide(self, tiles_group, False):
+                    if isinstance(sprite, Portal):
+                        continue
+                    if isinstance(sprite, Coin):
+                        continue
+                    if (sprite.rect.collidepoint(self.rect.bottomleft[0] + 5, self.rect.bottomleft[1] + 1)
+                        and not sprite.rect.collidepoint(self.rect.bottomleft[0] + 5, self.rect.bottomleft[1]))\
+                            or (sprite.rect.collidepoint(self.rect.bottomright[0] - 5, self.rect.bottomright[1] + 1)
+                                and not sprite.rect.collidepoint(self.rect.bottomright[0] - 5,
+                                                                 self.rect.bottomright[1])):
+                        self.position.y = self.rect.y - (self.rect.bottom - sprite.rect.y)
+                        self.vel.y = self.acc.y = 0
+                        self.jumping = False
+                        break
+                    elif pygame.sprite.collide_mask(self, sprite):
+                        self.position.y = self.rect.y - (self.rect.bottom - sprite.rect.y)
+                        self.vel.y = self.acc.y = 0
+                        self.jumping = False
+                        break
+        elif self.vel.y < 0:
+            if pygame.sprite.spritecollide(self, tiles_group, False):
+                self.mask = pygame.mask.from_surface(self.image)
+                for sprite in pygame.sprite.spritecollide(self, tiles_group, False):
+                    if isinstance(sprite, Portal):
+                        continue
+                    if isinstance(sprite, Coin):
+                        continue
+                    if sprite.rect.collidepoint(self.rect.topleft[0] + 5, self.rect.topleft[1]) \
+                            or sprite.rect.collidepoint(self.rect.topright[0] - 5, self.rect.topright[1]):
+                        self.vel.y *= -1
+                        self.acc.y *= -1
+                        break
 
 
 class Coin(pygame.sprite.Sprite):
@@ -1104,7 +1137,7 @@ def start_the_game():
                 intro_play()
             pygame.display.flip()
             FPS_CLOCK.tick(FPS)
-    except AttributeError:
+    except FileNotFoundError:
         FPS_CLOCK.tick(0.5)
         end_the_game()
 
