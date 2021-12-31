@@ -122,6 +122,7 @@ attack_animation_LEFT = [load_image("Player_Sprite_L.png"), load_image("Player_A
 
 bomb_idle = cut_sheet('bomb/bomb_idle.png', 2)
 bomb_walk = cut_sheet('bomb/bomb_walk.png', 6)
+bomb_fall_down = cut_sheet('bomb/bomb_fall_down.png', 1)
 
 life_states = [[] for i in range(len(heart_files))]
 for i, directory in enumerate(heart_files):
@@ -696,7 +697,7 @@ class Bomby(Enemy):
         super(Bomby, self).__init__(0, 0, 0, 0, 0, 0, 0, skip=True)
         self.frames = []
         self.direction = 1
-        self.frames = [bomb_idle, bomb_walk]
+        self.frames = [bomb_idle, bomb_walk, bomb_fall_down]
         self.columns = 2
         self.mana = 3
         self.start()
@@ -724,17 +725,22 @@ class Bomby(Enemy):
         return self.frame[0] == 2
 
     def update(self):
-        if self.count == 6:
-            self.count = 0
-            self.frame = self.frame[0], self.frame[1] + 1
-            self.image = self.frames[self.frame[0]][self.frame[1]]
-            if self.direction == -1:
-                self.image = pygame.transform.flip(self.image, True, False)
-        self.count += 1
-        if self.frame[1] == len(self.frames[self.frame[0]]) - 1:
-            self.frame = self.frame[0], -1
         self.move()
         self.move_y()
+        if self.vel.y > 1:
+            self.image = self.frames[2][0]
+            if self.direction == -1:
+                self.image = pygame.transform.flip(self.image, True, False)
+        else:
+            if self.count == 6:
+                self.count = 0
+                self.frame = self.frame[0], self.frame[1] + 1
+                self.image = self.frames[self.frame[0]][self.frame[1]]
+                if self.direction == -1:
+                    self.image = pygame.transform.flip(self.image, True, False)
+            self.count += 1
+            if self.frame[1] == len(self.frames[self.frame[0]]) - 1:
+                self.frame = self.frame[0], -1
 
     def move(self):
         if 2 * tile_size - self.vel.x <= abs(self.delta_x) \
