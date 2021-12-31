@@ -27,8 +27,12 @@ player_mana_state = None
 NON_COMFORT_ZONE = -1, -1
 max_values = [0, 0]
 enemies_killed = 0
+cur_enemies_killed = 0
 results = None
 prev_level_num = None
+completed_levels = 0
+background = None
+DEFAULT_BG = 'lands.jpg'
 
 heart_files = ['death', 'onelife', 'halflife', 'almosthalflife', 'fulllife']
 
@@ -173,15 +177,16 @@ class World:
 
 
 class Background(pygame.sprite.Sprite):
-    def __init__(self):
+    def __init__(self, name=DEFAULT_BG):
         super().__init__()
-        self.image = pygame.transform.scale(load_image('background.jpg'), (WIDTH, HEIGHT))
-        self.bgY = 0
-        self.bgX = 0
-        self.rect = self.image.get_rect(topleft=(self.bgX, self.bgY))
+        filename = os.path.join('backgrounds', name)
+        if not os.path.isfile(os.path.join('data', filename)):
+            raise FileNotFoundError
+        self.image = pygame.transform.scale(load_image(filename), (WIDTH, HEIGHT))
+        self.rect = self.image.get_rect(topleft=(0, 0))
 
     def render(self):
-        surface.blit(self.image, (self.bgX, self.bgY))
+        surface.blit(self.image, self.rect.topleft)
 
 
 class Ground(pygame.sprite.Sprite):
@@ -278,6 +283,8 @@ class Portal(Tile):
                 self.start_cycle()
                 row, col = self.frame
             elif row == 2:
+                global completed_levels
+                completed_levels += 1
                 teleport_sound.play()
                 outro_play()
         col = col % self.col
@@ -289,10 +296,18 @@ class Portal(Tile):
 class Level:
     @staticmethod
     def new_level(data, replay=False):
-        global max_values
+        global max_values, background, cur_enemies_killed
+        cur_enemies_killed = 0
+        data = list(data)
+        index = 1
+        try:
+            background = Background(data[0])
+        except FileNotFoundError:
+            background = Background()
+            index = 0
         res_player = None
         main_portal = None
-        for y, row in enumerate(data):
+        for y, row in enumerate(data[index:]):
             for x, tile in enumerate(row):
                 if tile == 'L':
                     Land((x, y), other_group)
@@ -517,8 +532,9 @@ class Player(pygame.sprite.Sprite):
         if enemy.is_killed():
             return
         if self.attacking:
-            global enemies_killed
+            global enemies_killed, cur_enemies_killed
             enemies_killed += 1
+            cur_enemies_killed += 1
             enemy.end()
         else:
             self.heart -= 1
@@ -970,7 +986,8 @@ def intro_play():
 
 
 def outro_play(replay=False, end_of_game=False):
-    global player, portal, level_num, player_state, heart, mana, player_mana_state
+    global player, portal, level_num, player_state, heart,\
+        mana, player_mana_state, enemies_killed, cur_enemies_killed
     outro_count = 0
     while outro_count < 255:
         background.render()
@@ -983,6 +1000,8 @@ def outro_play(replay=False, end_of_game=False):
         pygame.display.flip()
         outro_count += 2
     if replay:
+        enemies_killed -= cur_enemies_killed
+        cur_enemies_killed = 0
         level_num -= 1
         mana.mana = player_mana_state
     for sprite in all_sprites.sprites():
@@ -1001,6 +1020,7 @@ def outro_play(replay=False, end_of_game=False):
     else:
         save_results()
         player = None
+    player_state = 0
     player_state = player.score
 
 
@@ -1040,7 +1060,7 @@ def end_the_game():
         text_w = text.get_width() * text_h / text.get_height()
         surface.blit(pygame.transform.smoothscale(text, (text_w, text_h)),
                      (center_x - text_w // 2, center_y - text_h))
-        text = mana_font.render(f'{level_num} of {len(levels)} levels', True, END_TEXT_COLOR)
+        text = mana_font.render(f'{completed_levels} of {len(levels)} levels', True, END_TEXT_COLOR)
         text_h = HEIGHT * 0.044
         text_w = text.get_width() * text_h / text.get_height()
         surface.blit(pygame.transform.smoothscale(text, (text_w, text_h)),
@@ -1062,7 +1082,6 @@ def end_the_game():
 
 
 world = level_num = player = portal = None
-background = Background()
 levels = ['level1', 'level2', 'level3']
 
 
@@ -1078,16 +1097,16 @@ def play_menu():
 
 
 def start_the_game():
-    global world, level_num, player, portal, player_state, mana,\
-        heart, player_mana_state, max_values, enemies_killed, prev_level_num
+    global world, level_num, player, portal, player_state, mana, completed_levels,\
+        heart, player_mana_state, max_values, enemies_killed, cur_enemies_killed, prev_level_num
     world = World((WIDTH, HEIGHT - 100))
     prev_level_num = -1
-    level_num = 0
+    level_num = completed_levels = 0
     heart = Heart()
     mana = Mana()
     player_mana_state = mana.mana
     max_values = [0, 0]
-    enemies_killed = 0
+    enemies_killed = cur_enemies_killed = 0
     player, portal, level_num = load_level_from_list(levels, level_num)
     player_state = player.score
     running = True
@@ -1111,8 +1130,7 @@ def start_the_game():
                             FireBall()
             keys = pygame.key.get_pressed()
             if keys[pygame.K_ESCAPE]:
-                running = False
-                break
+                outro_play(end_of_game=True)
             if keys[pygame.K_DELETE]:
                 world.key_dx = WORLD_VEL
             if keys[pygame.K_PAGEDOWN]:
