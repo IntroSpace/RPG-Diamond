@@ -104,6 +104,15 @@ def cut_sheet(name, columns):
     return frames
 
 
+def sprites_by_directory(name, count):
+    direct = os.path.join('bomb', name)
+    frames = []
+    for i in range(count):
+        sprite = load_image(os.path.join(direct, f'{i}.png'))
+        frames.append(pygame.transform.scale(sprite, (tile_size, tile_size)))
+    return frames
+
+
 run_animation_RIGHT = [load_image("Player_Sprite_R.png"), load_image("Player_Sprite2_R.png"),
                        load_image("Player_Sprite3_R.png"), load_image("Player_Sprite4_R.png"),
                        load_image("Player_Sprite5_R.png"), load_image("Player_Sprite6_R.png")]
@@ -128,6 +137,7 @@ bomb_idle = cut_sheet('bomb/bomb_idle.png', 2)
 bomb_walk = cut_sheet('bomb/bomb_walk.png', 6)
 bomb_fall_down = cut_sheet('bomb/bomb_fall_down.png', 1)
 bomb_jump_up = cut_sheet('bomb/bomb_jump_up.png', 1)
+bomb_explode = sprites_by_directory('bomb_explode', 4)
 
 life_states = [[] for i in range(len(heart_files))]
 for i, directory in enumerate(heart_files):
@@ -420,6 +430,9 @@ class Player(pygame.sprite.Sprite):
         if pygame.key.get_pressed()[pygame.K_RETURN] and not self.attacking:
             self.attacking = True
             self.attack()
+        if not self.attacking and (self.attack_frame > 1 or self.attack_frame == -1):
+            self.attack_frame = -1
+            self.correction()
         if self.move_frame > 10:
             self.move_frame = 0
             return
@@ -479,6 +492,9 @@ class Player(pygame.sprite.Sprite):
             jump_sound.play()
 
     def gravity_check(self):
+        rect = self.rect
+        if self.attacking:
+            self.rect = self.image.get_rect(bottomleft=rect.bottomleft)
         if self.vel.y > 0:
             if pygame.sprite.spritecollide(player, other_group, False):
                 self.mask = pygame.mask.from_surface(self.image)
@@ -493,8 +509,8 @@ class Player(pygame.sprite.Sprite):
                         if pygame.sprite.collide_mask(self, sprite):
                             self.enemy_collide(sprite)
                         continue
-                    if sprite.rect.collidepoint(self.rect.bottomleft[0] + 5, self.rect.bottomleft[1]) \
-                            or sprite.rect.collidepoint(self.rect.bottomright[0] - 5, self.rect.bottomright[1]):
+                    if sprite.rect.collidepoint(rect.bottomleft[0] + 5, rect.bottomleft[1]) \
+                            or sprite.rect.collidepoint(rect.bottomright[0] - 5, rect.bottomright[1]):
                         self.pos.y = sprite.rect.top + 1
                         self.vel.y = 0
                         self.jumping = False
@@ -512,11 +528,12 @@ class Player(pygame.sprite.Sprite):
                         if pygame.sprite.collide_mask(self, sprite):
                             self.enemy_collide(sprite)
                         continue
-                    if sprite.rect.collidepoint(self.rect.topleft[0] + 5, self.rect.topleft[1]) \
-                            or sprite.rect.collidepoint(self.rect.topright[0] - 5, self.rect.topright[1]):
+                    if sprite.rect.collidepoint(rect.topleft[0] + 5, rect.topleft[1]) \
+                            or sprite.rect.collidepoint(rect.topright[0] - 5, rect.topright[1]):
                         self.vel.y *= -1
                         self.acc.y *= -1
                         break
+        self.rect = rect
 
     def single_score(self, screen):
         text = game_font.render(f'Your score: {str(self.score).ljust(3, " ")}©', True, TEXT_COLOR)
@@ -529,10 +546,25 @@ class Player(pygame.sprite.Sprite):
         pick_up.play()
 
     def enemy_collide(self, enemy):
-        if enemy.is_killed():
+        global enemies_killed, cur_enemies_killed
+        if isinstance(enemy, Bomby):
+            if enemy.is_killed() and enemy.frame[1] > 1:
+                self.heart -= 1
+                heart.heart -= 1
+                if heart.heart >= 0:
+                    outro_play(replay=True)
+                else:
+                    outro_play(end_of_game=True)
+                return
+            if self.attacking:
+                if not enemy.is_killed():
+                    enemies_killed += 1
+                    cur_enemies_killed += 1
+                    enemy.end()
+                return
+        elif enemy.is_killed():
             return
         if self.attacking:
-            global enemies_killed, cur_enemies_killed
             enemies_killed += 1
             cur_enemies_killed += 1
             enemy.end()
@@ -712,9 +744,8 @@ class Bat(Enemy):
 class Bomby(Enemy):
     def __init__(self, pos, angry_vel=(2, 1)):
         super(Bomby, self).__init__(0, 0, 0, 0, 0, 0, 0, skip=True)
-        self.frames = []
         self.direction = 1
-        self.frames = [bomb_idle, bomb_walk, bomb_fall_down, bomb_jump_up]
+        self.frames = [bomb_idle, bomb_walk, bomb_fall_down, bomb_jump_up, bomb_explode]
         self.columns = 2
         self.mana = 3
         self.start()
@@ -737,36 +768,48 @@ class Bomby(Enemy):
         if not self.is_killed():
             player.experience += 1
             mana.mana += self.mana
-        self.frame = 2, 0
+            self.count = 0
+            self.frame = 4, 0
 
     def is_killed(self):
-        return self.frame[0] == 2
+        return self.frame[0] == 4
 
     def update(self):
         if not self.jumping and pygame.key.get_pressed()[pygame.K_y]:
             self.jump()
-        self.move()
+        if not self.is_killed():
+            self.move()
         self.move_y()
-        if int(self.vel.y) > 1:
+        if int(self.vel.y) > 1 and not self.is_killed():
+            self.frame = 2, 0
             self.image = self.frames[2][0]
             if self.direction == -1:
                 self.image = pygame.transform.flip(self.image, True, False)
-        elif self.vel.y < -1:
+        elif self.vel.y < -1 and not self.is_killed():
+            self.frame = 3, 0
             self.image = self.frames[3][0]
             if self.direction == -1:
                 self.image = pygame.transform.flip(self.image, True, False)
         else:
-            if self.count == 6:
+            if (not self.is_killed() and self.count == 6)\
+                    or (self.frame[1] <= 1 and self.count == 14)\
+                    or (self.frame[1] > 1 and self.count == 9):
                 self.count = 0
                 self.frame = self.frame[0], self.frame[1] + 1
+            if self.is_killed() and self.frame[1] == len(self.frames[self.frame[0]]):
+                del enemies[enemies.index(self)]
+                self.kill()
+                return
+            self.frame = self.frame[0], self.frame[1] % len(self.frames[self.frame[0]])
             self.image = self.frames[self.frame[0]][self.frame[1]]
             if self.direction == -1:
                 self.image = pygame.transform.flip(self.image, True, False)
             self.count += 1
-            if self.frame[1] == len(self.frames[self.frame[0]]) - 1:
+            if self.frame[1] == len(self.frames[self.frame[0]]) - 1 and not self.is_killed():
                 self.frame = self.frame[0], -1
 
     def move(self):
+        self.frame = 1, self.frame[1]
         if 2 * tile_size - self.vel.x <= abs(self.delta_x) \
                 <= 2 * tile_size + self.vel.x:
             self.direction = self.direction * -1
