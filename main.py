@@ -430,9 +430,6 @@ class Player(pygame.sprite.Sprite):
         if pygame.key.get_pressed()[pygame.K_RETURN] and not self.attacking:
             self.attacking = True
             self.attack()
-        if not self.attacking and (self.attack_frame > 1 or self.attack_frame == -1):
-            self.attack_frame = -1
-            self.correction()
         if self.move_frame > 10:
             self.move_frame = 0
             return
@@ -639,6 +636,12 @@ class Enemy(pygame.sprite.Sprite):
 
     def world_shift(self, dx, dy):
         self.position += vec(dx, dy)
+
+    def end(self):
+        pass
+
+    def is_killed(self):
+        pass
 
 
 class Bat(Enemy):
@@ -945,7 +948,11 @@ class FireBall(pygame.sprite.Sprite):
         if pygame.sprite.spritecollide(self, other_group, False):
             for sprite in pygame.sprite.spritecollide(self, other_group, False):
                 if isinstance(sprite, Enemy):
-                    sprite.end()
+                    if not sprite.is_killed():
+                        global enemies_killed, cur_enemies_killed
+                        enemies_killed += 1
+                        cur_enemies_killed += 1
+                        sprite.end()
                 if isinstance(sprite, Tile):
                     self.kill()
 
