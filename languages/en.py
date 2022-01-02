@@ -1,0 +1,22 @@
+word = {
+    'back': 'Back',
+    'diffic': 'Difficulty',
+    'easy': 'Easy',
+    'hard': 'Hard',
+    'img file': 'Image file',
+    'med': 'Medium',
+    'name': 'Name',
+    'play': 'Play',
+    'press key': 'Press any key to continue',
+    'quit': 'Quit',
+    'tutor': 'Tutorial',
+    'very easy': 'Very Easy',
+    'welcome': 'Welcome',
+    'your score': 'Your score',
+    'coins': 'coins',
+    'enemies': 'enemies',
+    'levels': 'levels',
+    'lifes': 'lifes',
+    'not found': 'not found',
+    'of': 'of'
+}
