@@ -26,7 +26,7 @@ FPS = 60
 FPS_CLOCK = pygame.time.Clock()
 WORLD_VEL = 5
 MAX_WORLD_VEL = 5
-pygame.display.set_caption("Game")
+pygame.display.set_caption("RPG Diamond")
 tile_size = HEIGHT // 20
 game_font = pygame.font.Font(os.path.abspath('data/fonts/pixeloid_sans.ttf'), 33)
 special_font = pygame.font.Font(os.path.abspath('data/fonts/pixeloid_bold.ttf'), 33)
