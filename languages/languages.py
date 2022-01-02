@@ -24,7 +24,17 @@ lang = {
         'warning lang': 'После смены языка, Вам необходимо перезапустить игру',
         'lang': 'Язык',
         'lang list': [('Русский', 'ru'), ('Английский', 'en')],
-        'apply': 'Применить'
+        'apply': 'Применить',
+        'stage0': 'Привет! Это обучение и здесь мы научим тебя базовым вещам',
+        'stage1': 'Используй стрелки на клавиатуре, чтобы двигаться влево и вправо',
+        'stage2': 'Нажми пробел, чтобы прыгнуть',
+        'stage2.1': 'Ты можешь прыгнуть один раз в воздухе',
+        'stage3': 'Нажми Enter на клавиатуре, чтобы атаковать',
+        'stage4': 'Также ты можешь атаковать с помощью левой кнопки мыши',
+        'stage5': 'Нажми правую кнопку мыши, чтобы отправить огненный шар',
+        'stage5.1': 'Он убивает всех врагов на своём пути, но требует маны игрока',
+        'stage6.1': 'Нажми Escape, чтобы вернуться в меню',
+        'stage6': 'Спасибо за прохождение обучения! Возвращайся в меню и пройди все уровни'
     },
     'en': {
         'back': 'Back',
@@ -51,6 +61,16 @@ lang = {
         'warning lang': 'After changing the language, you need to restart the game',
         'lang': 'Language',
         'lang list': [('English', 'en'), ('Russian', 'ru')],
-        'apply': 'Apply'
+        'apply': 'Apply',
+        'stage0': 'Hello! This is tutorial and here we will teach you basic things',
+        'stage1': 'Press Arrows on keyboard to move left or right',
+        'stage2': 'Press Space on keyboard to jump',
+        'stage2.1': 'You can jump once in the air',
+        'stage3': 'Press Enter on keyboard to attack',
+        'stage4': 'Also you can attack with the left mouse button',
+        'stage5': 'Press right mouse button to send a fireball',
+        'stage5.1': 'He takes down all enemies in his path, but it wastes the player\'s mana',
+        'stage6.1': 'Press Escape on keyboard to return to the menu',
+        'stage6': 'Thanks for completing the tutorial! Return to the menu and pass the levels'
     }
 }

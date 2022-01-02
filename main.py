@@ -16,7 +16,7 @@ del cur
 word = lang.get(cur_lang, dict())
 
 pygame.init()
-WIDTH, HEIGHT = 1920, 1080
+WIDTH, HEIGHT = pygame.display.Info().current_w, pygame.display.Info().current_h
 surface = pygame.display.set_mode((WIDTH, HEIGHT))
 ACC = 0.4
 FRIC = -0.10
@@ -28,7 +28,8 @@ WORLD_VEL = 5
 MAX_WORLD_VEL = 5
 pygame.display.set_caption("Game")
 tile_size = HEIGHT // 20
-game_font = pygame.font.Font(os.path.abspath('data/fonts/pixeloid_sans.ttf'), 35)
+game_font = pygame.font.Font(os.path.abspath('data/fonts/pixeloid_sans.ttf'), 33)
+special_font = pygame.font.Font(os.path.abspath('data/fonts/pixeloid_bold.ttf'), 33)
 mana_font = pygame.font.Font(os.path.abspath('data/fonts/pixeloid_sans.ttf'), tile_size)
 intro_count = None
 s = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
@@ -43,8 +44,11 @@ prev_level_num = None
 completed_levels = 0
 background = None
 DEFAULT_BG = 'lands.jpg'
+tutor_animation = None
 
 heart_files = ['death', 'onelife', 'halflife', 'almosthalflife', 'fulllife']
+stage_files = ['keyboard/arrows', 'keyboard/space', 'keyboard/enter',
+               'mouse/left', 'mouse/right', 'keyboard/esc']
 
 pick_up = pygame.mixer.Sound('data/sounds/pick_up.wav')
 pick_up.set_volume(0.22)
@@ -62,6 +66,7 @@ pygame.mixer.music.load('data/sounds/background_music.wav')
 pygame.mixer.music.play(-1)
 
 TEXT_COLOR = pygame.Color(115, 125, 125)
+STAGES_COLOR = pygame.Color(190, 195, 175)
 END_TEXT_COLOR = 245, 245, 245
 TEXT_SHIFT = game_font.render(f'{word.get("your score")}: 0   ©',
                               True, TEXT_COLOR).get_width() // 1.4 + 15
@@ -83,6 +88,8 @@ coins_group = pygame.sprite.Group()
 fireball_group = pygame.sprite.Group()
 # группа для отображения сердечек и маны
 design_group = pygame.sprite.Group()
+# группа для обучения
+tutorial_group = pygame.sprite.Group()
 
 
 # Анимации для бега вправо
@@ -103,12 +110,13 @@ def load_image(name, colorkey=None):
     return image
 
 
-def cut_sheet(name, columns):
-    sheet = load_image(name)
+def cut_sheet(filename, columns, size=tile_size):
+    sheet = load_image(filename)
     sprite_rect = pygame.Rect(0, 0, sheet.get_width() // columns,
                               sheet.get_height())
     frames = []
-    rect = pygame.Rect(0, 0, tile_size, tile_size)
+    delta = size / sprite_rect.h
+    rect = pygame.Rect(0, 0, int(sprite_rect.w * delta), size)
     for i in range(columns):
         frame_location = (sprite_rect.w * i, 0)
         frames.append(pygame.transform.scale(sheet.subsurface(pygame.Rect(
@@ -158,6 +166,10 @@ for i, directory in enumerate(heart_files):
         life_states[i].append(pygame.transform.scale(load_image(os.path.join(final_dir, file)),
                                                      (0.11 * WIDTH, 0.11 / 4 * WIDTH)))
 
+stages = [[pygame.Surface((0, 0))]]
+for name in stage_files:
+    stages.append(cut_sheet(f'tutorial/{name}.png', 2, size=tile_size * 2))
+
 
 class World:
     def __init__(self, screen_size):
@@ -165,7 +177,7 @@ class World:
         self.dy = self.key_dy = 0
         width, height = screen_size
         self.borders_x = pygame.Rect(((width - height) // 2, 0, height, height))
-        self.borders_y = pygame.Rect((0, tile_size * 5, width, tile_size * 11))
+        self.borders_y = pygame.Rect((0, tile_size * 5, width, int(tile_size * 11.1)))
 
     def update(self, __player):
         player_rect = __player.rect
@@ -1006,6 +1018,25 @@ class Mana(pygame.sprite.Sprite):
         surface.blit(pygame.transform.smoothscale(text, (text_w, text_h)), (text_x, text_y))
 
 
+class TutorialAnimation(pygame.sprite.Sprite):
+    def __init__(self):
+        super(TutorialAnimation, self).__init__(all_sprites, tutorial_group)
+        self.image = stages[0][0]
+        self.rect = self.image.get_rect(midtop=(WIDTH // 2, int(HEIGHT - tile_size * 3.5)))
+        self.count = 0
+        self.frame = -1
+
+    def update(self, stage=0):
+        cur_frames = stages[stage]
+        if self.count == 12:
+            self.frame += 1
+            self.count = 0
+        self.count += 1
+        self.frame = self.frame % len(cur_frames)
+        self.image = cur_frames[self.frame]
+        self.rect = self.image.get_rect(midtop=(WIDTH // 2, int(HEIGHT - tile_size * 3.5)))
+
+
 heart = None
 mana = Mana()
 
@@ -1076,7 +1107,7 @@ def outro_play(replay=False, end_of_game=False):
     enemies.clear()
     Enemy.bats = 0
     bat_sound.stop()
-    if level_num < len(levels) and not end_of_game:
+    if not end_of_game and level_num < len(levels):
         if not replay:
             player_state = None
         player, portal, level_num = load_level_from_list(levels, level_num)
@@ -1203,8 +1234,6 @@ def start_the_game():
                             player.attacking = True
                             FireBall()
             keys = pygame.key.get_pressed()
-            if keys[pygame.K_ESCAPE]:
-                outro_play(end_of_game=True)
             if keys[pygame.K_DELETE]:
                 world.key_dx = WORLD_VEL
             if keys[pygame.K_PAGEDOWN]:
@@ -1235,6 +1264,8 @@ def start_the_game():
             design_group.draw(surface)
             mana.show_score()
             surface.blit(player.image, player.rect)
+            if keys[pygame.K_ESCAPE]:
+                outro_play(end_of_game=True)
             if intro_count > 0:
                 intro_play()
             pygame.display.flip()
@@ -1245,7 +1276,118 @@ def start_the_game():
 
 
 def start_tutorial():
-    pass
+    global world, player, portal, tutor_animation
+    world = World((WIDTH, HEIGHT - 100))
+    player, _ = load_level_data('tutorial')
+    running = True
+    counter = 400
+    stage = 0
+    text = None
+    if tutor_animation is None:
+        tutor_animation = TutorialAnimation()
+    try:
+        while running:
+            player.gravity_check()
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    con.close()
+                    sys.exit()
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if event.button == 1:
+                        if not player.attacking:
+                            player.attack()
+                            player.attacking = True
+                    if event.button == 3:
+                        if mana.mana >= 6 and player.magic_cooldown:
+                            mana.mana = 6
+                            player.attacking = True
+                            FireBall()
+            keys = pygame.key.get_pressed()
+            if keys[pygame.K_DELETE]:
+                world.key_dx = WORLD_VEL
+            if keys[pygame.K_PAGEDOWN]:
+                world.key_dx = - WORLD_VEL
+            surface.fill((0, 0, 0))
+            player.update()
+            tutor_animation.update(stage)
+            if player.attacking:
+                player.attack()
+            player.move()
+            background.render()
+            for ball in fireball_group:
+                ball.fire()
+            world.update(player)
+            if world.dx != 0 or world.dy != 0:
+                player.world_shift(world.dx, world.dy)
+                for sprite in all_sprites.sprites():
+                    if tutorial_group.has(sprite):
+                        continue
+                    sprite.rect = sprite.rect.move(world.dx, world.dy)
+            other_group.draw(surface)
+            surface.blit(player.image, player.rect)
+            if stage == 6 and counter > 500:
+                counter = 500
+            elif counter == 850:
+                if stage != 6:
+                    stage += 1
+                counter = 0
+            counter += 1
+            if stage == 0 and counter >= 450:
+                text = special_font.render(word.get('stage0'),
+                                           True, STAGES_COLOR)
+            elif stage < 1:
+                pass
+            elif stage == 1:
+                text = special_font.render(word.get('stage1'),
+                                           True, STAGES_COLOR)
+            elif stage == 2 and counter >= 500:
+                text = special_font.render(word.get('stage2.1'),
+                                           True, STAGES_COLOR)
+            elif stage == 2:
+                text = special_font.render(word.get('stage2'),
+                                           True, STAGES_COLOR)
+            elif stage == 3:
+                text = special_font.render(word.get('stage3'),
+                                           True, STAGES_COLOR)
+            elif stage == 4:
+                text = special_font.render(word.get('stage4'),
+                                           True, STAGES_COLOR)
+            elif stage == 5 and counter >= 500:
+                text = special_font.render(word.get('stage5.1'),
+                                           True, STAGES_COLOR)
+            elif stage == 5:
+                text = special_font.render(word.get('stage5'),
+                                           True, STAGES_COLOR)
+            elif stage == 6 and counter > 450:
+                text = special_font.render(word.get('stage6.1'),
+                                           True, STAGES_COLOR)
+            else:
+                text = special_font.render(word.get('stage6'),
+                                           True, STAGES_COLOR)
+            if text:
+                text_x = tile_size * 2
+                text_y = int(tile_size * 1.5)
+                surface.blit(text, (text_x, text_y))
+            tutorial_group.draw(surface)
+            if keys[pygame.K_ESCAPE]:
+                player = None
+            if intro_count > 0:
+                intro_play()
+            pygame.display.flip()
+            FPS_CLOCK.tick(FPS)
+    except AttributeError:
+        player = None
+        world = None
+        for sprite in all_sprites.sprites():
+            sprite.kill()
+        FPS_CLOCK.tick(1)
+    except IndexError:
+        player = None
+        world = None
+        for sprite in all_sprites.sprites():
+            sprite.kill()
+        FPS_CLOCK.tick(1)
 
 
 def restart_with_language(lang_menu, new_lang):
