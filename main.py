@@ -4,7 +4,7 @@ import sys
 
 import pygame
 import pygame_menu
-from languages.en import word
+from languages.ru import word
 
 pygame.init()
 WIDTH, HEIGHT = 1920, 1080
