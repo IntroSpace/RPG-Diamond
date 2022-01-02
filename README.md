@@ -1,2 +1,2 @@
-# pygame-rpg
-### a game that will interest you 
+# RPG *Diamond*
+### a game that will interest you 😉 
