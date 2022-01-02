@@ -4,7 +4,16 @@ import sys
 
 import pygame
 import pygame_menu
-from languages.ru import word
+from languages.languages import lang
+import sqlite3
+
+
+con = sqlite3.connect("game.sql")
+
+cur = con.cursor()
+cur_lang = cur.execute("""SELECT value FROM settings WHERE name = 'lang'""").fetchone()[0]
+del cur
+word = lang.get(cur_lang, dict())
 
 pygame.init()
 WIDTH, HEIGHT = 1920, 1080
@@ -81,6 +90,7 @@ def load_image(name, colorkey=None):
     fullname = os.path.join('data', name)
     if not os.path.isfile(fullname):
         print(f'{word.get("img file")} \'{fullname}\' {word.get("not found")}')
+        con.close()
         sys.exit()
     image = pygame.image.load(fullname)
     if colorkey is not None:
@@ -1090,6 +1100,7 @@ def end_the_game():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
+                con.close()
                 sys.exit()
             if event.type == pygame.KEYDOWN:
                 return
@@ -1179,6 +1190,7 @@ def start_the_game():
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
+                    con.close()
                     sys.exit()
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 1:
@@ -1236,6 +1248,32 @@ def start_tutorial():
     pass
 
 
+def restart_with_language(lang_menu, new_lang):
+    new_lang = new_lang[0][1]
+    if new_lang != cur_lang:
+        cur = con.cursor()
+        cur.execute('UPDATE settings SET value=? WHERE name="lang"', (new_lang, ))
+        con.commit()
+        pygame.quit()
+        con.close()
+        sys.exit()
+    else:
+        lang_menu.disable()
+
+
+def choose_language():
+    lang_menu = pygame_menu.Menu(word.get("choose lang"), WIDTH, HEIGHT,
+                                 theme=pygame_menu.themes.THEME_DARK)
+    lang_menu.add.label(word.get("warning lang"), font_color=pygame.Color('#B33A3A'))
+    new_lang = lang_menu.add.selector(word.get("lang"), word.get("lang list"))
+    lang_menu.select_widget(
+        lang_menu.add.button(word.get("apply"),
+                             lambda: restart_with_language(lang_menu, new_lang.get_value()))
+    )
+    lang_menu.add.button(word.get("back"), lang_menu.disable)
+    lang_menu.mainloop(surface)
+
+
 menu = pygame_menu.Menu(word.get("welcome"), WIDTH, HEIGHT,
                         theme=pygame_menu.themes.THEME_DARK)
 
@@ -1244,5 +1282,7 @@ text_input = menu.add.text_input(f'{word.get("name")}: ', default='Player')
 
 menu.add.button(word.get("play"), play_menu)
 menu.add.button(word.get("tutor"), start_tutorial)
+menu.add.button(word.get("choose lang"), choose_language)
 menu.add.button(word.get("quit"), pygame_menu.events.EXIT)
 menu.mainloop(surface)
+con.close()
