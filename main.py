@@ -4,6 +4,7 @@ import sys
 
 import pygame
 import pygame_menu
+from languages.en import word
 
 pygame.init()
 WIDTH, HEIGHT = 1920, 1080
@@ -53,7 +54,8 @@ pygame.mixer.music.play(-1)
 
 TEXT_COLOR = pygame.Color(115, 125, 125)
 END_TEXT_COLOR = 245, 245, 245
-TEXT_SHIFT = game_font.render(f'Your score: 0   ©', True, TEXT_COLOR).get_width() // 1.4 + 15
+TEXT_SHIFT = game_font.render(f'{word.get("your score")}: 0   ©',
+                              True, TEXT_COLOR).get_width() // 1.4 + 15
 MANA_COLOR = pygame.Color(49, 105, 168)
 
 enemies = list()
@@ -78,7 +80,7 @@ design_group = pygame.sprite.Group()
 def load_image(name, colorkey=None):
     fullname = os.path.join('data', name)
     if not os.path.isfile(fullname):
-        print(f"Файл с изображением '{fullname}' не найден")
+        print(f'{word.get("img file")} \'{fullname}\' {word.get("not found")}')
         sys.exit()
     image = pygame.image.load(fullname)
     if colorkey is not None:
@@ -533,7 +535,8 @@ class Player(pygame.sprite.Sprite):
         self.rect = rect
 
     def single_score(self, screen):
-        text = game_font.render(f'Your score: {str(self.score).ljust(3, " ")}©', True, TEXT_COLOR)
+        text = game_font.render(f'{word.get("your score")}: {str(self.score).ljust(3, " ")}©',
+                                True, TEXT_COLOR)
         text_x = WIDTH - tile_size * 2 - TEXT_SHIFT
         text_y = tile_size
         screen.blit(text, (text_x, text_y))
@@ -1092,31 +1095,38 @@ def end_the_game():
                 return
         center_x = WIDTH // 2
         center_y = HEIGHT // 2
-        text = mana_font.render(f'{max(heart.heart, 0)} of {len(life_states) - 1} lifes',
+        text = mana_font.render(f'{max(heart.heart, 0)} {word.get("of")} '
+                                f'{len(life_states) - 1} {word.get("lifes")}',
                                 True, END_TEXT_COLOR)
         text_h = HEIGHT * 0.049
         text_w = text.get_width() * text_h / text.get_height()
         surface.blit(pygame.transform.smoothscale(text, (text_w, text_h)),
                      (center_x - text_w // 2, center_y - text_h * 3))
 
-        text = mana_font.render(f'{results[0]} of {max_values[0]} coins', True, END_TEXT_COLOR)
+        text = mana_font.render(f'{results[0]} {word.get("of")} '
+                                f'{max_values[0]} {word.get("coins")}',
+                                True, END_TEXT_COLOR)
         text_h = HEIGHT * 0.048
         text_w = text.get_width() * text_h / text.get_height()
         surface.blit(pygame.transform.smoothscale(text, (text_w, text_h)),
                      (center_x - text_w // 2, center_y - text_h * 2))
 
-        text = mana_font.render(f'{results[1]} of {max_values[1]} enemies', True, END_TEXT_COLOR)
+        text = mana_font.render(f'{results[1]} {word.get("of")} '
+                                f'{max_values[1]} {word.get("enemies")}',
+                                True, END_TEXT_COLOR)
         text_h = HEIGHT * 0.046
         text_w = text.get_width() * text_h / text.get_height()
         surface.blit(pygame.transform.smoothscale(text, (text_w, text_h)),
                      (center_x - text_w // 2, center_y - text_h))
-        text = mana_font.render(f'{completed_levels} of {len(levels)} levels', True, END_TEXT_COLOR)
+        text = mana_font.render(f'{completed_levels} {word.get("of")} '
+                                f'{len(levels)} {word.get("levels")}',
+                                True, END_TEXT_COLOR)
         text_h = HEIGHT * 0.044
         text_w = text.get_width() * text_h / text.get_height()
         surface.blit(pygame.transform.smoothscale(text, (text_w, text_h)),
                      (center_x - text_w // 2, center_y))
 
-        text = mana_font.render(f'Press any key to continue...',
+        text = mana_font.render(f'{word.get("press key")}...',
                                 True, END_TEXT_COLOR)
         text.set_alpha(counter)
         text_h = HEIGHT * 0.052
@@ -1136,13 +1146,15 @@ levels = ['level1', 'level2', 'level3']
 
 
 def play_menu():
-    submenu = pygame_menu.Menu('Play', WIDTH, HEIGHT,
+    submenu = pygame_menu.Menu(word.get("play"), WIDTH, HEIGHT,
                                theme=pygame_menu.themes.THEME_DARK)
 
-    submenu.add.selector('Difficulty: ', [('Very Easy', 0), ('Easy', 1), ('Medium', 2), ('Hard', 3)],
+    submenu.add.selector(f'{word.get("diffic")}: ',
+                         [(word.get("very easy"), 0), (word.get("easy"), 1),
+                          (word.get("med"), 2), (word.get("hard"), 3)],
                          onchange=set_difficulty)
-    submenu.select_widget(submenu.add.button('Play', start_the_game))
-    submenu.add.button('Back', submenu.disable)
+    submenu.select_widget(submenu.add.button(word.get("play"), start_the_game))
+    submenu.add.button(word.get("back"), submenu.disable)
     submenu.mainloop(surface)
 
 
@@ -1224,13 +1236,13 @@ def start_tutorial():
     pass
 
 
-menu = pygame_menu.Menu('Welcome', WIDTH, HEIGHT,
+menu = pygame_menu.Menu(word.get("welcome"), WIDTH, HEIGHT,
                         theme=pygame_menu.themes.THEME_DARK)
 
-text_input = menu.add.text_input('Name: ', default='Player')
+text_input = menu.add.text_input(f'{word.get("name")}: ', default='Player')
 
 
-menu.add.button('Play', play_menu)
-menu.add.button('Tutorial', start_tutorial)
-menu.add.button('Quit', pygame_menu.events.EXIT)
+menu.add.button(word.get("play"), play_menu)
+menu.add.button(word.get("tutor"), start_tutorial)
+menu.add.button(word.get("quit"), pygame_menu.events.EXIT)
 menu.mainloop(surface)
