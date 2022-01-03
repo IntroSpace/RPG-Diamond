@@ -1,6 +1,7 @@
 import os
 import random
 import sys
+import shutil
 
 import pygame
 import pygame_menu
@@ -1201,7 +1202,7 @@ def play_menu():
 
 
 def start_the_game():
-    global world, level_num, player, portal, player_state, mana, completed_levels,\
+    global world, level_num, player, portal, player_state, mana, completed_levels, background,\
         heart, player_mana_state, max_values, enemies_killed, cur_enemies_killed, prev_level_num
     world = World((WIDTH, HEIGHT - 100))
     prev_level_num = -1
@@ -1233,6 +1234,18 @@ def start_the_game():
                             mana.mana -= 6
                             player.attacking = True
                             FireBall()
+                if event.type == pygame.DROPFILE:
+                    try:
+                        start_file = os.path.basename(event.file)
+                        filename, file_extension = os.path.splitext(start_file)
+                        if file_extension in ['.png', '.jpg', '.bmp']:
+                            final_file = os.path.abspath(
+                                os.path.join(os.path.join('data', 'backgrounds'), start_file))
+                            if not os.path.isfile(final_file):
+                                shutil.copyfile(event.file, final_file)
+                            background = Background(start_file)
+                    except Exception:
+                        pass
             keys = pygame.key.get_pressed()
             if keys[pygame.K_DELETE]:
                 world.key_dx = WORLD_VEL
