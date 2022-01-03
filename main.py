@@ -1519,10 +1519,18 @@ def settings_menu():
     submenu.mainloop(surface)
 
 
+def save_username(new_username):
+    global username
+    username = new_username
+    cur = con.cursor()
+    cur.execute('UPDATE settings SET value=? WHERE name="username"', (username,))
+    con.commit()
+
+
 menu = pygame_menu.Menu(word.get("welcome"), WIDTH, HEIGHT,
                         theme=pygame_menu.themes.THEME_DARK)
 
-text_input = menu.add.text_input(f'{word.get("name")}: ', default=username)
+text_input = menu.add.text_input(f'{word.get("name")}: ', default=username, onchange=save_username)
 
 
 menu.add.button(word.get("play"), play_menu)
