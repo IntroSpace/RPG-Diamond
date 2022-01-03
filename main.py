@@ -107,6 +107,11 @@ pygame.mixer.music.load('data/sounds/background_music.wav')
 pygame.mixer.music.set_volume(vol_music)
 pygame.mixer.music.play(-1)
 
+CELL_COLOR = pygame.Color(245, 245, 245)
+CELL_CHOSEN_COLOR = pygame.Color(140, 185, 205)
+CELL_WIDTH = 1
+
+BG_COLOR = 45, 40, 40
 TEXT_COLOR = pygame.Color(115, 125, 125)
 STAGES_COLOR = pygame.Color(190, 195, 175)
 END_TEXT_COLOR = 245, 245, 245
@@ -1169,7 +1174,7 @@ def end_the_game():
     pressed = False
     counter, direction = 255, -3
     while not pressed:
-        surface.fill((45, 40, 40))
+        surface.fill(BG_COLOR)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -1444,6 +1449,93 @@ def start_tutorial():
         FPS_CLOCK.tick(1)
 
 
+class CellBoard:
+    land = pygame.transform.scale(load_image('land.png'), (tile_size, tile_size))
+    stone1 = pygame.transform.scale(load_image('stone1.png'), (tile_size, tile_size))
+    sand = pygame.transform.scale(load_image('sand.png'), (tile_size, tile_size))
+
+    def __init__(self):
+        self.board = [[' ' for _ in range(WIDTH // tile_size + 1)] for _ in range(20)]
+        self.cur_tile = 'L'
+        self.spare_tile = ' '
+        self.dx = self.dy = 0
+        self.s_dx = self.s_dy = 0
+        self.prev_x, self.prev_y = -1, -1
+        self.size = tile_size
+
+    def set_size(self, new_size):
+        x, y = pygame.mouse.get_pos()
+        x -= self.dx
+        y -= self.dy
+        new_y = int(y / self.size * new_size)
+        new_x = int(x / self.size * new_size)
+        self.dx = self.s_dx + (x - new_x)
+        self.dy = self.s_dy + (y - new_y)
+        self.s_dx = self.dx
+        self.s_dy = self.dy
+        self.size = new_size
+        self.land = pygame.transform.scale(load_image('land.png'), (self.size, self.size))
+        self.stone1 = pygame.transform.scale(load_image('stone1.png'), (self.size, self.size))
+        self.sand = pygame.transform.scale(load_image('sand.png'), (self.size, self.size))
+
+    def draw_item(self, x, y, value):
+        if value == 'L':
+            surface.blit(self.land, (x * self.size + self.dx, y * self.size + self.dy))
+        if value == 'R':
+            surface.blit(self.stone1, (x * self.size + self.dx, y * self.size + self.dy))
+        if value == 'S':
+            surface.blit(self.sand, (x * self.size + self.dx, y * self.size + self.dy))
+
+    def render(self, screen):
+        keys = pygame.key.get_pressed()
+        mods = pygame.key.get_mods()
+        for y, row in enumerate(self.board):
+            for x, cell in enumerate(row):
+                self.draw_item(x, y, cell)
+                if not (mods & pygame.KMOD_CTRL and keys[pygame.K_h]):
+                    pygame.draw.rect(screen, CELL_COLOR,
+                                     (x * self.size + self.dx, y * self.size + self.dy,
+                                      self.size, self.size), width=CELL_WIDTH)
+        if not (mods & pygame.KMOD_CTRL and keys[pygame.K_h]):
+            x, y = pygame.mouse.get_pos()
+            x -= self.dx
+            y -= self.dy
+            x, y = x // self.size, y // self.size
+            if 0 <= y < len(self.board) and 0 <= x < len(self.board[0]):
+                pygame.draw.rect(screen, CELL_CHOSEN_COLOR,
+                                 (x * self.size + self.dx, y * self.size + self.dy,
+                                  self.size, self.size), width=CELL_WIDTH * 3)
+
+    def mouse_down(self, button):
+        if button == 2:
+            self.prev_x, self.prev_y = pygame.mouse.get_pos()
+        if button == 5 and self.size > tile_size // 5:
+            self.set_size(self.size - 3)
+        if button == 4 and self.size < tile_size * 7:
+            self.set_size(self.size + 3)
+
+    def mouse_up(self, button):
+        if button == 2:
+            self.prev_x, self.prev_y = -1, -1
+            self.s_dx = self.dx
+            self.s_dy = self.dy
+
+    def mouse_pressed(self):
+        x, y = pygame.mouse.get_pos()
+        if not self.prev_x == self.prev_y == -1:
+            self.dx = self.s_dx + x - self.prev_x
+            self.dy = self.s_dy + y - self.prev_y
+        x -= self.dx
+        y -= self.dy
+        ind_y = y // self.size
+        ind_x = x // self.size
+        if 0 <= ind_y < len(self.board) and 0 <= ind_x < len(self.board[0]):
+            if pygame.mouse.get_pressed()[0]:
+                self.board[ind_y][ind_x] = self.cur_tile
+            elif pygame.mouse.get_pressed()[2]:
+                self.board[ind_y][ind_x] = self.spare_tile
+
+
 def restart_with_language(lang_menu, new_lang):
     new_lang = new_lang[0][1]
     if new_lang != cur_lang:
@@ -1527,6 +1619,39 @@ def save_username(new_username):
     con.commit()
 
 
+def start_level_editor():
+    global background
+    board = CellBoard()
+    background = Background()
+    while True:
+        background.render()
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                con.close()
+                sys.exit()
+            if event.type == pygame.DROPFILE:
+                try:
+                    start_file = os.path.basename(event.file)
+                    filename, file_extension = os.path.splitext(start_file)
+                    if file_extension in ['.png', '.jpg', '.bmp']:
+                        final_file = os.path.abspath(
+                            os.path.join(os.path.join('data', 'backgrounds'), start_file))
+                        if not os.path.isfile(final_file):
+                            shutil.copyfile(event.file, final_file)
+                        background = Background(start_file)
+                except Exception:
+                    pass
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                board.mouse_down(event.button)
+            if event.type == pygame.MOUSEBUTTONUP:
+                board.mouse_up(event.button)
+        board.mouse_pressed()
+        board.render(surface)
+        pygame.display.flip()
+        FPS_CLOCK.tick(FPS)
+
+
 menu = pygame_menu.Menu(word.get("welcome"), WIDTH, HEIGHT,
                         theme=pygame_menu.themes.THEME_DARK)
 
@@ -1535,6 +1660,7 @@ text_input = menu.add.text_input(f'{word.get("name")}: ', default=username, onch
 
 menu.add.button(word.get("play"), play_menu)
 menu.add.button(word.get("tutor"), start_tutorial)
+menu.add.button(word.get("level editor"), start_level_editor)
 menu.add.button(word.get("settings"), settings_menu)
 menu.add.button(word.get("quit"), pygame_menu.events.EXIT)
 menu.mainloop(surface)

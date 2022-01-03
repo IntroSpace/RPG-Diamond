@@ -39,7 +39,8 @@ lang = {
         'music': 'Музыка',
         'sound': 'Звук',
         'en/dis list 1': [('Включено', 1), ('Выключено', 0)],
-        'en/dis list 0': [('Выключено', 0), ('Включено', 1)]
+        'en/dis list 0': [('Выключено', 0), ('Включено', 1)],
+        'level editor': 'Редактор уровней'
     },
     'en': {
         'back': 'Back',
@@ -81,6 +82,7 @@ lang = {
         'music': 'Music',
         'sound': 'Sound',
         'en/dis list 1': [('Enabled', 1), ('Disabled', 0)],
-        'en/dis list 0': [('Disabled', 0), ('Enabled', 1)]
+        'en/dis list 0': [('Disabled', 0), ('Enabled', 1)],
+        'level editor': 'Level editor'
     }
 }
