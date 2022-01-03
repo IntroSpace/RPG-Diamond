@@ -1459,6 +1459,7 @@ class CellBoard:
     land = pygame.transform.scale(load_image('land.png'), (tile_size, tile_size))
     stone1 = pygame.transform.scale(load_image('stone1.png'), (tile_size, tile_size))
     sand = pygame.transform.scale(load_image('sand.png'), (tile_size, tile_size))
+    player_sprite = run_animation_RIGHT[0]
 
     def __init__(self):
         self.board = [[' ' for _ in range(WIDTH // tile_size + 1)] for _ in range(20)]
@@ -1483,6 +1484,9 @@ class CellBoard:
         self.land = pygame.transform.scale(load_image('land.png'), (self.size, self.size))
         self.stone1 = pygame.transform.scale(load_image('stone1.png'), (self.size, self.size))
         self.sand = pygame.transform.scale(load_image('sand.png'), (self.size, self.size))
+        spr = run_animation_RIGHT[0]
+        self.player_sprite = pygame.transform.scale(spr, (spr.get_width() * self.size // tile_size,
+                                                          spr.get_height() * self.size // tile_size))
 
     def draw_item(self, x, y, value):
         if value == 'L':
@@ -1491,6 +1495,8 @@ class CellBoard:
             surface.blit(self.stone1, (x * self.size + self.dx, y * self.size + self.dy))
         if value == 'S':
             surface.blit(self.sand, (x * self.size + self.dx, y * self.size + self.dy))
+        if value == 'P':
+            surface.blit(self.player_sprite, (x * self.size + self.dx, y * self.size + self.dy))
 
     def render(self, screen):
         keys = pygame.key.get_pressed()
@@ -1540,6 +1546,18 @@ class CellBoard:
                 self.board[ind_y][ind_x] = self.cur_tile
             elif pygame.mouse.get_pressed()[2]:
                 self.board[ind_y][ind_x] = self.spare_tile
+
+    def key_pressed(self):
+        keys = pygame.key.get_pressed()
+        mods = pygame.key.get_mods()
+        if keys[pygame.K_p] and mods & pygame.KMOD_CTRL:
+            x, y = pygame.mouse.get_pos()
+            x -= self.dx
+            y -= self.dy
+            ind_y = y // self.size
+            ind_x = x // self.size
+            if 0 <= ind_y < len(self.board) and 0 <= ind_x < len(self.board[0]):
+                self.board[ind_y][ind_x] = 'P'
 
     def get_level_map(self):
         res_board = [''.join(row) + '\n' for row in self.board]
@@ -1663,6 +1681,7 @@ def start_level_editor():
         if background is None:
             break
         board.mouse_pressed()
+        board.key_pressed()
         board.render(surface)
         pygame.display.flip()
         FPS_CLOCK.tick(FPS)
