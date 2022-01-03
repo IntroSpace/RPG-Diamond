@@ -11,10 +11,22 @@ import sqlite3
 
 con = sqlite3.connect("game.sql")
 
-cur = con.cursor()
-cur_lang = cur.execute("""SELECT value FROM settings WHERE name = 'lang'""").fetchone()[0]
-del cur
+
+def load_lang():
+    cur = con.cursor()
+    return cur.execute("""SELECT value FROM settings WHERE name = 'lang'""").fetchone()[0]
+
+
+def load_settings():
+    cur = con.cursor()
+    return [i[0] for i in cur.execute("""SELECT value FROM settings ORDER BY id""").fetchall()]
+
+
+username, cur_lang, vol_music, vol_sound = load_settings()
 word = lang.get(cur_lang, dict())
+vol_music, vol_sound = int(vol_music), int(vol_sound)
+new_music = vol_music
+new_sound = vol_sound
 
 pygame.init()
 WIDTH, HEIGHT = pygame.display.Info().current_w, pygame.display.Info().current_h
@@ -51,19 +63,48 @@ heart_files = ['death', 'onelife', 'halflife', 'almosthalflife', 'fulllife']
 stage_files = ['keyboard/arrows', 'keyboard/space', 'keyboard/enter',
                'mouse/left', 'mouse/right', 'keyboard/esc']
 
-pick_up = pygame.mixer.Sound('data/sounds/pick_up.wav')
+
+all_sounds = list()
+
+
+class CustomSound:
+    def __init__(self, filename, volume=1):
+        all_sounds.append(self)
+        self.sound = pygame.mixer.Sound(filename)
+        self.volume = volume
+        self.sound.set_volume(volume)
+
+    def set_volume(self, volume):
+        self.volume = volume
+        self.sound.set_volume(volume)
+
+    def set_default_volume(self, new_volume):
+        self.sound.set_volume(self.volume * new_volume)
+
+    def play(self, *args, **kwargs):
+        self.sound.play(*args, **kwargs)
+
+    def stop(self):
+        self.sound.stop()
+
+    def fadeout(self, *args, **kwargs):
+        self.sound.fadeout(*args, **kwargs)
+
+
+pick_up = CustomSound('data/sounds/pick_up.wav')
 pick_up.set_volume(0.22)
-player_regeneration = pygame.mixer.Sound('data/sounds/player_regeneration.wav')
-player_regeneration.set_volume(0.13)
-bat_sound = pygame.mixer.Sound('data/sounds/bats.wav')
-jump_sound = pygame.mixer.Sound('data/sounds/jump.wav')
-jump_sound.set_volume(0.35)
-knife_attack_sound = pygame.mixer.Sound('data/sounds/knife_attack.wav')
-knife_attack_sound.set_volume(0.6)
-teleport_sound = pygame.mixer.Sound('data/sounds/teleport.wav')
-teleport_sound.set_volume(0.8)
-# step_sound = pygame.mixer.Sound('data/sounds/footsteps.wav')
+player_regeneration = CustomSound('data/sounds/player_regeneration.wav')
+player_regeneration.set_volume(0.08)
+bat_sound = CustomSound('data/sounds/bats.wav')
+bat_sound.set_volume(0.9)
+jump_sound = CustomSound('data/sounds/jump.wav')
+jump_sound.set_volume(0.27)
+knife_attack_sound = CustomSound('data/sounds/knife_attack.wav')
+knife_attack_sound.set_volume(0.45)
+teleport_sound = CustomSound('data/sounds/teleport.wav')
+teleport_sound.set_volume(0.75)
 pygame.mixer.music.load('data/sounds/background_music.wav')
+pygame.mixer.music.set_volume(vol_music)
 pygame.mixer.music.play(-1)
 
 TEXT_COLOR = pygame.Color(115, 125, 125)
@@ -1416,6 +1457,43 @@ def restart_with_language(lang_menu, new_lang):
         lang_menu.disable()
 
 
+def save_settings():
+    global vol_music, vol_sound
+    if new_music != vol_music:
+        vol_music = new_music
+        cur = con.cursor()
+        cur.execute('UPDATE settings SET value=? WHERE name="music"', (new_music, ))
+        con.commit()
+    if new_sound != vol_sound:
+        vol_sound = new_sound
+        cur = con.cursor()
+        cur.execute('UPDATE settings SET value=? WHERE name="sound"', (new_sound, ))
+        con.commit()
+
+
+def close_settings(setting_menu, update=1):
+    global new_music, new_sound
+    if update == 1:
+        save_settings()
+    else:
+        set_music_volume([[0, vol_music]])
+        set_sound_volume([[0, vol_sound]])
+    setting_menu.disable()
+
+
+def set_music_volume(value, *args):
+    global new_music
+    new_music = value[0][1]
+    pygame.mixer.music.set_volume(new_music)
+
+
+def set_sound_volume(value, *args):
+    global new_sound
+    new_sound = value[0][1]
+    for sound in all_sounds:
+        sound.set_default_volume(new_sound)
+
+
 def choose_language():
     lang_menu = pygame_menu.Menu(word.get("choose lang"), WIDTH, HEIGHT,
                                  theme=pygame_menu.themes.THEME_DARK)
@@ -1429,15 +1507,27 @@ def choose_language():
     lang_menu.mainloop(surface)
 
 
+def settings_menu():
+    submenu = pygame_menu.Menu(word.get("settings"), WIDTH, HEIGHT,
+                               theme=pygame_menu.themes.THEME_DARK)
+    submenu.add.selector(f'{word.get("music")}: ',
+                         word.get(f"en/dis list {vol_music}"), onchange=set_music_volume)
+    submenu.add.selector(f'{word.get("sound")}: ',
+                         word.get(f"en/dis list {vol_sound}"), onchange=set_sound_volume)
+    submenu.add.button(word.get("choose lang"), lambda: (save_settings(), choose_language()))
+    submenu.add.button(word.get("apply"), lambda: close_settings(submenu))
+    submenu.mainloop(surface)
+
+
 menu = pygame_menu.Menu(word.get("welcome"), WIDTH, HEIGHT,
                         theme=pygame_menu.themes.THEME_DARK)
 
-text_input = menu.add.text_input(f'{word.get("name")}: ', default='Player')
+text_input = menu.add.text_input(f'{word.get("name")}: ', default=username)
 
 
 menu.add.button(word.get("play"), play_menu)
 menu.add.button(word.get("tutor"), start_tutorial)
-menu.add.button(word.get("choose lang"), choose_language)
+menu.add.button(word.get("settings"), settings_menu)
 menu.add.button(word.get("quit"), pygame_menu.events.EXIT)
 menu.mainloop(surface)
 con.close()

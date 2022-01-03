@@ -34,7 +34,12 @@ lang = {
         'stage5': 'Нажми правую кнопку мыши, чтобы отправить огненный шар',
         'stage5.1': 'Он убивает всех врагов на своём пути, но требует маны игрока',
         'stage6.1': 'Нажми Escape, чтобы вернуться в меню',
-        'stage6': 'Спасибо за прохождение обучения! Возвращайся в меню и пройди все уровни'
+        'stage6': 'Спасибо за прохождение обучения! Возвращайся в меню и пройди все уровни',
+        'settings': 'Настройки',
+        'music': 'Музыка',
+        'sound': 'Звук',
+        'en/dis list 1': [('Включено', 1), ('Выключено', 0)],
+        'en/dis list 0': [('Выключено', 0), ('Включено', 1)]
     },
     'en': {
         'back': 'Back',
@@ -71,6 +76,11 @@ lang = {
         'stage5': 'Press right mouse button to send a fireball',
         'stage5.1': 'He takes down all enemies in his path, but it wastes the player\'s mana',
         'stage6.1': 'Press Escape on keyboard to return to the menu',
-        'stage6': 'Thanks for completing the tutorial! Return to the menu and pass the levels'
+        'stage6': 'Thanks for completing the tutorial! Return to the menu and pass the levels',
+        'settings': 'Settings',
+        'music': 'Music',
+        'sound': 'Sound',
+        'en/dis list 1': [('Enabled', 1), ('Disabled', 0)],
+        'en/dis list 0': [('Disabled', 0), ('Enabled', 1)]
     }
 }
