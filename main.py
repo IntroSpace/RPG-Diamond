@@ -260,6 +260,7 @@ class World:
 class Background(pygame.sprite.Sprite):
     def __init__(self, name=DEFAULT_BG):
         super().__init__()
+        self.name = name
         filename = os.path.join('backgrounds', name)
         if not os.path.isfile(os.path.join('data', filename)):
             raise FileNotFoundError
@@ -419,6 +420,11 @@ class Level:
                         max_values[1] += 1
                     enemies.append(Bomby((x, y)))
         return res_player, main_portal
+
+    @staticmethod
+    def save_level(filename, data, background_name):
+        with open(f'levels/{filename}.map', mode='w', encoding='utf8') as f:
+            f.writelines([background_name + '\n', *data])
 
 
 class Player(pygame.sprite.Sprite):
@@ -1106,7 +1112,7 @@ def load_level_data(filename):
     prev_level_num = level_num
     intro_count = 255
     with open(f'levels/{filename}.map', mode='r', encoding='utf8') as f:
-        return Level.new_level(map(str.strip, f.readlines()), replay=replay)
+        return Level.new_level(map(lambda i: i.replace('\n', ''), f.readlines()), replay=replay)
 
 
 def load_level_from_list(list_of_levels, num):
@@ -1231,7 +1237,7 @@ def end_the_game():
 
 
 world = level_num = player = portal = None
-levels = ['level1', 'level2', 'level3']
+levels = ['test_level', 'level1', 'level2', 'level3']
 
 
 def play_menu():
@@ -1535,6 +1541,10 @@ class CellBoard:
             elif pygame.mouse.get_pressed()[2]:
                 self.board[ind_y][ind_x] = self.spare_tile
 
+    def get_level_map(self):
+        res_board = [''.join(row) + '\n' for row in self.board]
+        return res_board
+
 
 def restart_with_language(lang_menu, new_lang):
     new_lang = new_lang[0][1]
@@ -1646,6 +1656,12 @@ def start_level_editor():
                 board.mouse_down(event.button)
             if event.type == pygame.MOUSEBUTTONUP:
                 board.mouse_up(event.button)
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_s and pygame.key.get_mods() & pygame.KMOD_CTRL:
+                    Level.save_level('test_level', board.get_level_map(), background.name)
+                    background = None
+        if background is None:
+            break
         board.mouse_pressed()
         board.render(surface)
         pygame.display.flip()
