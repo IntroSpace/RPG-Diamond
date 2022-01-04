@@ -8,7 +8,6 @@ import pygame_menu
 from languages.languages import lang
 import sqlite3
 
-
 con = sqlite3.connect("game.sql")
 
 
@@ -64,7 +63,6 @@ tutor_animation = None
 heart_files = ['death', 'onelife', 'halflife', 'almosthalflife', 'fulllife']
 stage_files = ['keyboard/arrows', 'keyboard/space', 'keyboard/enter',
                'mouse/left', 'mouse/right', 'keyboard/esc']
-
 
 all_sounds = list()
 
@@ -441,6 +439,10 @@ class Level:
                     if not replay:
                         max_values[1] += 1
                     enemies.append(Bomby((x, y)))
+                if tile == 'A':
+                    if not replay:
+                        max_values[1] += 1
+                    enemies.append(SpikeBall((x, y)))
         return res_player, main_portal
 
     @staticmethod
@@ -896,8 +898,8 @@ class Bomby(Enemy):
             if self.direction == -1:
                 self.image = pygame.transform.flip(self.image, True, False)
         else:
-            if (not self.is_killed() and self.count == 6)\
-                    or (self.frame[1] <= 1 and self.count == 14)\
+            if (not self.is_killed() and self.count == 6) \
+                    or (self.frame[1] <= 1 and self.count == 14) \
                     or (self.frame[1] > 1 and self.count == 9):
                 self.count = 0
                 self.frame = self.frame[0], self.frame[1] + 1
@@ -1114,6 +1116,34 @@ class TutorialAnimation(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(midtop=(WIDTH // 2, int(HEIGHT - tile_size * 3.5)))
 
 
+class SpikeBall(Enemy):
+    def __init__(self, pos: tuple):
+        super().__init__(0, 0, 0, 0, 0, 0, 0, skip=True)
+        self.position = vec(pos[0] * tile_size, pos[1] * tile_size)
+        self.frame = 0
+        self.frames = []
+        self.cut_sheet(load_image('spike_ball.png'), 6, 1)
+        self.image = self.frames[self.frame]
+        self.count = 0
+
+    def cut_sheet(self, sheet, columns, rows):
+        sprite_rect = pygame.Rect(0, 0, sheet.get_width() // columns,
+                                  sheet.get_height() // rows)
+        self.rect = pygame.Rect(*self.position, tile_size, tile_size)
+        for j in range(rows):
+            for i in range(columns):
+                frame_location = (sprite_rect.w * i, sprite_rect.h * j)
+                self.frames.append(pygame.transform.scale(sheet.subsurface(pygame.Rect(
+                    frame_location, sprite_rect.size)), self.rect.size))
+
+    def update(self):
+        if self.count == 10:
+            self.count = 0
+            self.frame = (self.frame + 1) % len(self.frames)
+            self.image = self.frames[self.frame]
+        self.count += 1
+
+
 heart = None
 mana = Mana()
 
@@ -1144,7 +1174,7 @@ def load_level_from_list(list_of_levels, num):
 
 
 def intro_play():
-    global intro_count, heart, player, player_mana_state
+    global intro_count, heart, player_mana_state
     if intro_count >= 255:
         player_mana_state = mana.mana
         if heart is None:
@@ -1157,7 +1187,7 @@ def intro_play():
 
 
 def outro_play(replay=False, end_of_game=False):
-    global player, portal, level_num, player_state, heart,\
+    global player, portal, level_num, player_state, heart, \
         mana, player_mana_state, enemies_killed, cur_enemies_killed
     outro_count = 0
     while outro_count < 255:
@@ -1278,7 +1308,7 @@ def play_menu():
 
 
 def start_the_game():
-    global world, level_num, player, portal, player_state, mana, completed_levels, background,\
+    global world, level_num, player, portal, player_state, mana, completed_levels, background, \
         heart, player_mana_state, max_values, enemies_killed, cur_enemies_killed, prev_level_num
     world = World((WIDTH, HEIGHT - 100))
     prev_level_num = -1
@@ -1590,7 +1620,7 @@ def restart_with_language(lang_menu, new_lang):
     new_lang = new_lang[0][1]
     if new_lang != cur_lang:
         cur = con.cursor()
-        cur.execute('UPDATE settings SET value=? WHERE name="lang"', (new_lang, ))
+        cur.execute('UPDATE settings SET value=? WHERE name="lang"', (new_lang,))
         con.commit()
         pygame.quit()
         con.close()
@@ -1604,12 +1634,12 @@ def save_settings():
     if new_music != vol_music:
         vol_music = new_music
         cur = con.cursor()
-        cur.execute('UPDATE settings SET value=? WHERE name="music"', (new_music, ))
+        cur.execute('UPDATE settings SET value=? WHERE name="music"', (new_music,))
         con.commit()
     if new_sound != vol_sound:
         vol_sound = new_sound
         cur = con.cursor()
-        cur.execute('UPDATE settings SET value=? WHERE name="sound"', (new_sound, ))
+        cur.execute('UPDATE settings SET value=? WHERE name="sound"', (new_sound,))
         con.commit()
 
 
@@ -1713,7 +1743,6 @@ menu = pygame_menu.Menu(word.get("welcome"), WIDTH, HEIGHT,
                         theme=pygame_menu.themes.THEME_DARK)
 
 text_input = menu.add.text_input(f'{word.get("name")}: ', default=username, onchange=save_username)
-
 
 menu.add.button(word.get("play"), play_menu)
 menu.add.button(word.get("tutor"), start_tutorial)
