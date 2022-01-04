@@ -30,6 +30,9 @@ new_sound = vol_sound
 
 pygame.init()
 WIDTH, HEIGHT = pygame.display.Info().current_w, pygame.display.Info().current_h
+WIDTH, HEIGHT = 1504, 846
+# WIDTH, HEIGHT = 1008, 567
+tile_size = HEIGHT // 20
 surface = pygame.display.set_mode((WIDTH, HEIGHT))
 ACC = 0.4
 FRIC = -0.10
@@ -40,7 +43,6 @@ FPS_CLOCK = pygame.time.Clock()
 WORLD_VEL = 5
 MAX_WORLD_VEL = 5
 pygame.display.set_caption("RPG Diamond")
-tile_size = HEIGHT // 20
 game_font = pygame.font.Font(os.path.abspath('data/fonts/pixeloid_sans.ttf'), 33)
 special_font = pygame.font.Font(os.path.abspath('data/fonts/pixeloid_bold.ttf'), 33)
 mana_font = pygame.font.Font(os.path.abspath('data/fonts/pixeloid_sans.ttf'), tile_size)
@@ -140,7 +142,7 @@ tutorial_group = pygame.sprite.Group()
 
 
 # Анимации для бега вправо
-def load_image(name, colorkey=None):
+def load_image(name, colorkey=None, size=None):
     fullname = os.path.join('data', name)
     if not os.path.isfile(fullname):
         print(f'{word.get("img file")} \'{fullname}\' {word.get("not found")}')
@@ -154,6 +156,10 @@ def load_image(name, colorkey=None):
         image.set_colorkey(colorkey)
     else:
         image = image.convert_alpha()
+    if size is not None:
+        delta = size / 54
+        image = pygame.transform.scale(image, (int(image.get_width() * delta),
+                                               int(image.get_height() * delta)))
     return image
 
 
@@ -180,25 +186,41 @@ def sprites_by_directory(name, count):
     return frames
 
 
-run_animation_RIGHT = [load_image("Player_Sprite_R.png"), load_image("Player_Sprite2_R.png"),
-                       load_image("Player_Sprite3_R.png"), load_image("Player_Sprite4_R.png"),
-                       load_image("Player_Sprite5_R.png"), load_image("Player_Sprite6_R.png")]
+run_animation_RIGHT = [load_image("Player_Sprite_R.png", size=tile_size),
+                       load_image("Player_Sprite2_R.png", size=tile_size),
+                       load_image("Player_Sprite3_R.png", size=tile_size),
+                       load_image("Player_Sprite4_R.png", size=tile_size),
+                       load_image("Player_Sprite5_R.png", size=tile_size),
+                       load_image("Player_Sprite6_R.png", size=tile_size)]
 
 # Анимации для бега влево
-run_animation_LEFT = [load_image("Player_Sprite_L.png"), load_image("Player_Sprite2_L.png"),
-                      load_image("Player_Sprite3_L.png"), load_image("Player_Sprite4_L.png"),
-                      load_image("Player_Sprite5_L.png"), load_image("Player_Sprite6_L.png")]
+run_animation_LEFT = [load_image("Player_Sprite_L.png", size=tile_size),
+                      load_image("Player_Sprite2_L.png", size=tile_size),
+                      load_image("Player_Sprite3_L.png", size=tile_size),
+                      load_image("Player_Sprite4_L.png", size=tile_size),
+                      load_image("Player_Sprite5_L.png", size=tile_size),
+                      load_image("Player_Sprite6_L.png", size=tile_size)]
 
-attack_animation_RIGHT = [load_image("Player_Sprite_R.png"), load_image("Player_Attack_R.png"),
-                          load_image("Player_Attack2_R.png"), load_image("Player_Attack2_R.png"),
-                          load_image("Player_Attack3_R.png"), load_image("Player_Attack3_R.png"),
-                          load_image("Player_Attack4_R.png"), load_image("Player_Attack4_R.png"),
-                          load_image("Player_Attack5_R.png"), load_image("Player_Attack5_R.png")]
-attack_animation_LEFT = [load_image("Player_Sprite_L.png"), load_image("Player_Attack_L.png"),
-                         load_image("Player_Attack2_L.png"), load_image("Player_Attack2_L.png"),
-                         load_image("Player_Attack3_L.png"), load_image("Player_Attack3_L.png"),
-                         load_image("Player_Attack4_L.png"), load_image("Player_Attack4_L.png"),
-                         load_image("Player_Attack5_L.png"), load_image("Player_Attack5_L.png")]
+attack_animation_RIGHT = [load_image("Player_Sprite_R.png", size=tile_size),
+                          load_image("Player_Attack_R.png", size=tile_size),
+                          load_image("Player_Attack2_R.png", size=tile_size),
+                          load_image("Player_Attack2_R.png", size=tile_size),
+                          load_image("Player_Attack3_R.png", size=tile_size),
+                          load_image("Player_Attack3_R.png", size=tile_size),
+                          load_image("Player_Attack4_R.png", size=tile_size),
+                          load_image("Player_Attack4_R.png", size=tile_size),
+                          load_image("Player_Attack5_R.png", size=tile_size),
+                          load_image("Player_Attack5_R.png", size=tile_size)]
+attack_animation_LEFT = [load_image("Player_Sprite_L.png", size=tile_size),
+                         load_image("Player_Attack_L.png", size=tile_size),
+                         load_image("Player_Attack2_L.png", size=tile_size),
+                         load_image("Player_Attack2_L.png", size=tile_size),
+                         load_image("Player_Attack3_L.png", size=tile_size),
+                         load_image("Player_Attack3_L.png", size=tile_size),
+                         load_image("Player_Attack4_L.png", size=tile_size),
+                         load_image("Player_Attack4_L.png", size=tile_size),
+                         load_image("Player_Attack5_L.png", size=tile_size),
+                         load_image("Player_Attack5_L.png", size=tile_size)]
 
 bomb_idle = cut_sheet('bomb/bomb_idle.png', 2)
 bomb_walk = cut_sheet('bomb/bomb_walk.png', 6)
@@ -430,7 +452,7 @@ class Level:
 class Player(pygame.sprite.Sprite):
     def __init__(self, pos, score=0):
         super().__init__(all_sprites)
-        self.image = load_image("Player_Sprite_R.png")
+        self.image = load_image("Player_Sprite_R.png", size=tile_size)
         self.rect = self.image.get_rect()
         self.mask = pygame.mask.from_surface(self.image)
         self.experience = 0
@@ -473,7 +495,7 @@ class Player(pygame.sprite.Sprite):
                     self.block_right = 1
                 if not self.block_left and rect.collidepoint(self.rect.midleft):
                     self.block_left = 1
-        self.acc = vec(0, 0.5)
+        self.acc = vec(0, 0.5 * tile_size / 54)
         if abs(self.vel.x) > 0.5:
             self.running = True
         else:
@@ -562,7 +584,7 @@ class Player(pygame.sprite.Sprite):
     def jump(self):
         if not self.jumping:
             self.jumping = True
-            self.vel.y = -12
+            self.vel.y = -12 * tile_size / 54
             jump_sound.play()
 
     def gravity_check(self):
@@ -1318,6 +1340,8 @@ def start_the_game():
                 for enemy in enemies:
                     enemy.world_shift(world.dx, world.dy)
                 for sprite in all_sprites.sprites():
+                    if isinstance(sprite, Player) or isinstance(sprite, Enemy):
+                        continue
                     if design_group.has(sprite):
                         continue
                     sprite.rect = sprite.rect.move(world.dx, world.dy)
@@ -1369,10 +1393,6 @@ def start_tutorial():
                             player.attacking = True
                             FireBall()
             keys = pygame.key.get_pressed()
-            if keys[pygame.K_DELETE]:
-                world.key_dx = WORLD_VEL
-            if keys[pygame.K_PAGEDOWN]:
-                world.key_dx = - WORLD_VEL
             surface.fill((0, 0, 0))
             player.update()
             tutor_animation.update(stage)
