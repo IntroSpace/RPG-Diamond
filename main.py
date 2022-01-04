@@ -30,7 +30,7 @@ new_sound = vol_sound
 
 pygame.init()
 WIDTH, HEIGHT = pygame.display.Info().current_w, pygame.display.Info().current_h
-WIDTH, HEIGHT = 1504, 846
+# WIDTH, HEIGHT = 1504, 846
 # WIDTH, HEIGHT = 1008, 567
 tile_size = HEIGHT // 20
 surface = pygame.display.set_mode((WIDTH, HEIGHT))
