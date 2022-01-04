@@ -57,7 +57,7 @@ results = None
 prev_level_num = None
 completed_levels = 0
 background = None
-DEFAULT_BG = 'lands.jpg'
+DEFAULT_BG = 'lands.png'
 tutor_animation = None
 
 heart_files = ['death', 'onelife', 'halflife', 'almosthalflife', 'fulllife']
@@ -137,6 +137,8 @@ fireball_group = pygame.sprite.Group()
 design_group = pygame.sprite.Group()
 # группа для обучения
 tutorial_group = pygame.sprite.Group()
+# группа для осколков (атака SpikeBall)
+particles_group = pygame.sprite.Group()
 
 
 # Анимации для бега вправо
@@ -1116,6 +1118,34 @@ class TutorialAnimation(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(midtop=(WIDTH // 2, int(HEIGHT - tile_size * 3.5)))
 
 
+class Particle(pygame.sprite.Sprite):
+    # сгенерируем частицы разного размера
+    fire = [load_image("test_sprite.png", size=17)]
+    for scale in (11 * 54 // tile_size, 13 * 54 // tile_size, 15 * 54 // tile_size):
+        fire.append(pygame.transform.scale(fire[0], (scale, scale)))
+
+    def __init__(self, pos, dx, dy):
+        super().__init__(all_sprites, particles_group)
+        self.image = random.choice(self.fire)
+        self.rect = self.image.get_rect(center=pos)
+
+        # у каждой частицы своя скорость — это вектор
+        self.velocity = vec(dx, dy)
+
+        # гравитация будет одинаковой
+        self.gravity = 0.5
+
+    def update(self):
+        # движение с ускорением под действием гравитации
+        self.velocity.y += self.gravity
+        # перемещаем частицу
+        self.rect.x += self.velocity.x
+        self.rect.y += self.velocity.y
+        # позже будет правильное условие
+        if False:
+            self.kill()
+
+
 class SpikeBall(Enemy):
     def __init__(self, pos: tuple):
         super().__init__(0, 0, 0, 0, 0, 0, 0, skip=True)
@@ -1125,6 +1155,7 @@ class SpikeBall(Enemy):
         self.cut_sheet(load_image('spike_ball.png'), 6, 1)
         self.image = self.frames[self.frame]
         self.count = 0
+        self.fire_count = 0
 
     def cut_sheet(self, sheet, columns, rows):
         sprite_rect = pygame.Rect(0, 0, sheet.get_width() // columns,
@@ -1137,11 +1168,24 @@ class SpikeBall(Enemy):
                     frame_location, sprite_rect.size)), self.rect.size))
 
     def update(self):
+        if self.fire_count >= 4 and self.frame == 2:
+            self.create_particles()
+            self.fire_count = 0
         if self.count == 10:
             self.count = 0
             self.frame = (self.frame + 1) % len(self.frames)
+            if self.frame == 2:
+                self.fire_count += 1
             self.image = self.frames[self.frame]
         self.count += 1
+
+    def create_particles(self):
+        # количество создаваемых частиц
+        particle_count = 8
+        # возможные скорости
+        numbers = range(-5, 6)
+        for _ in range(particle_count):
+            Particle(self.rect.center, random.choice(numbers), random.choice(numbers))
 
 
 heart = None
@@ -1365,6 +1409,7 @@ def start_the_game():
             background.render()
             for ball in fireball_group:
                 ball.fire()
+            particles_group.update()
             enemy_group.update()
             world.update(player)
             if world.dx != 0 or world.dy != 0:
@@ -1378,6 +1423,7 @@ def start_the_game():
                         continue
                     sprite.rect = sprite.rect.move(world.dx, world.dy)
             other_group.draw(surface)
+            particles_group.draw(surface)
             enemy_group.draw(surface)
             portal.update()
             player.single_score(surface)
