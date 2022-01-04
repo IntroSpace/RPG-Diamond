@@ -1120,9 +1120,7 @@ class TutorialAnimation(pygame.sprite.Sprite):
 
 class Particle(pygame.sprite.Sprite):
     # сгенерируем частицы разного размера
-    fire = [load_image("test_sprite.png", size=17)]
-    for scale in (11 * 54 // tile_size, 13 * 54 // tile_size, 15 * 54 // tile_size):
-        fire.append(pygame.transform.scale(fire[0], (scale, scale)))
+    fire = [load_image("test_sprite.png", size=tile_size // 1.05)]
 
     def __init__(self, pos, dx, dy):
         super().__init__(all_sprites, particles_group)
@@ -1168,7 +1166,7 @@ class SpikeBall(Enemy):
                     frame_location, sprite_rect.size)), self.rect.size))
 
     def update(self):
-        if self.fire_count >= 4 and self.frame == 2:
+        if self.fire_count >= 5 and self.frame == 2:
             self.create_particles()
             self.fire_count = 0
         if self.count == 10:
