@@ -520,6 +520,7 @@ class Player(pygame.sprite.Sprite):
     def world_shift(self, dx, dy):
         self.pos.x += dx
         self.pos.y += dy
+        self.rect.midbottom = self.pos
 
     def update(self):
         if len(fireball_group.sprites()) == 0:
@@ -736,6 +737,7 @@ class Enemy(pygame.sprite.Sprite):
 
     def world_shift(self, dx, dy):
         self.position += vec(dx, dy)
+        self.rect.topleft = self.position
 
     def end(self):
         pass
