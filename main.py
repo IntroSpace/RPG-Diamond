@@ -59,6 +59,8 @@ completed_levels = 0
 background = None
 DEFAULT_BG = 'lands.png'
 tutor_animation = None
+PARTICLES_BY_DIFFICULTY = [2, 3, 6, 9]
+PARTS_COUNT = 2
 
 heart_files = ['death', 'onelife', 'halflife', 'almosthalflife', 'fulllife']
 stage_files = ['keyboard/arrows', 'keyboard/space', 'keyboard/enter',
@@ -442,8 +444,6 @@ class Level:
                         max_values[1] += 1
                     enemies.append(Bomby((x, y)))
                 if tile == 'A':
-                    if not replay:
-                        max_values[1] += 1
                     enemies.append(SpikeBall((x, y)))
         return res_player, main_portal
 
@@ -477,6 +477,7 @@ class Player(pygame.sprite.Sprite):
         self.score = score
         self.heart = 4 if heart is None else heart.heart
         self.magic_cooldown = 1
+        self.killed_by_particles = False
 
     def move(self):
         sprite_list = pygame.sprite.spritecollide(self, other_group, False)
@@ -484,6 +485,16 @@ class Player(pygame.sprite.Sprite):
         if sprite_list:
             self.mask = pygame.mask.from_surface(self.image)
             for sprite in sprite_list:
+                if isinstance(sprite, Particle):
+                    if not self.killed_by_particles:
+                        self.killed_by_particles = True
+                        self.heart -= 1
+                        heart.heart -= 1
+                        if heart.heart >= 0:
+                            outro_play(replay=True)
+                        else:
+                            outro_play(end_of_game=True)
+                    continue
                 if isinstance(sprite, Portal):
                     if pygame.sprite.collide_mask(self, sprite):
                         sprite.close()
@@ -600,6 +611,16 @@ class Player(pygame.sprite.Sprite):
             if pygame.sprite.spritecollide(player, other_group, False):
                 self.mask = pygame.mask.from_surface(self.image)
                 for sprite in pygame.sprite.spritecollide(player, other_group, False):
+                    if isinstance(sprite, Particle):
+                        if not self.killed_by_particles:
+                            self.killed_by_particles = True
+                            self.heart -= 1
+                            heart.heart -= 1
+                            if heart.heart >= 0:
+                                outro_play(replay=True)
+                            else:
+                                outro_play(end_of_game=True)
+                        continue
                     if isinstance(sprite, Portal):
                         if pygame.sprite.collide_mask(self, sprite):
                             sprite.close()
@@ -619,6 +640,16 @@ class Player(pygame.sprite.Sprite):
             if pygame.sprite.spritecollide(player, other_group, False):
                 self.mask = pygame.mask.from_surface(self.image)
                 for sprite in pygame.sprite.spritecollide(player, other_group, False):
+                    if isinstance(sprite, Particle):
+                        if not self.killed_by_particles:
+                            self.killed_by_particles = True
+                            self.heart -= 1
+                            heart.heart -= 1
+                            if heart.heart >= 0:
+                                outro_play(replay=True)
+                            else:
+                                outro_play(end_of_game=True)
+                        continue
                     if isinstance(sprite, Portal):
                         if pygame.sprite.collide_mask(self, sprite):
                             sprite.close()
@@ -666,7 +697,7 @@ class Player(pygame.sprite.Sprite):
                 return
         elif enemy.is_killed():
             return
-        if self.attacking:
+        if self.attacking and not isinstance(enemy, SpikeBall):
             enemies_killed += 1
             cur_enemies_killed += 1
             enemy.end()
@@ -1123,9 +1154,11 @@ class Particle(pygame.sprite.Sprite):
     fire = [load_image("test_sprite.png", size=tile_size // 1.05)]
 
     def __init__(self, pos, dx, dy):
-        super().__init__(all_sprites, particles_group)
+        super().__init__(all_sprites, other_group, particles_group)
         self.image = random.choice(self.fire)
         self.rect = self.image.get_rect(center=pos)
+        self.mask = pygame.mask.from_surface(self.image)
+        self.count = 300
 
         # у каждой частицы своя скорость — это вектор
         self.velocity = vec(dx, dy)
@@ -1140,8 +1173,10 @@ class Particle(pygame.sprite.Sprite):
         self.rect.x += self.velocity.x
         self.rect.y += self.velocity.y
         # позже будет правильное условие
-        if False:
+        self.image.set_alpha(min([255, self.count]))
+        if self.count <= 10:
             self.kill()
+        self.count -= 4
 
 
 class SpikeBall(Enemy):
@@ -1152,6 +1187,7 @@ class SpikeBall(Enemy):
         self.frames = []
         self.cut_sheet(load_image('spike_ball.png'), 6, 1)
         self.image = self.frames[self.frame]
+        self.mask = pygame.mask.from_surface(self.image)
         self.count = 0
         self.fire_count = 0
 
@@ -1165,6 +1201,9 @@ class SpikeBall(Enemy):
                 self.frames.append(pygame.transform.scale(sheet.subsurface(pygame.Rect(
                     frame_location, sprite_rect.size)), self.rect.size))
 
+    def is_killed(self):
+        return False
+
     def update(self):
         if self.fire_count >= 5 and self.frame == 2:
             self.create_particles()
@@ -1175,15 +1214,17 @@ class SpikeBall(Enemy):
             if self.frame == 2:
                 self.fire_count += 1
             self.image = self.frames[self.frame]
+            self.mask = pygame.mask.from_surface(self.image)
         self.count += 1
 
     def create_particles(self):
         # количество создаваемых частиц
-        particle_count = 8
+        particle_count = PARTS_COUNT
         # возможные скорости
-        numbers = range(-5, 6)
+        nums_x = range(-4, 5)
+        nums_y = range(-7, -2)
         for _ in range(particle_count):
-            Particle(self.rect.center, random.choice(numbers), random.choice(numbers))
+            Particle(self.rect.center, random.choice(nums_x), random.choice(nums_y))
 
 
 heart = None
@@ -1191,7 +1232,8 @@ mana = Mana()
 
 
 def set_difficulty(value, difficulty):
-    global NON_COMFORT_ZONE
+    global NON_COMFORT_ZONE, PARTS_COUNT
+    PARTS_COUNT = PARTICLES_BY_DIFFICULTY[difficulty]
     if difficulty == 0:
         NON_COMFORT_ZONE = -1, -1
     elif difficulty == 1:
