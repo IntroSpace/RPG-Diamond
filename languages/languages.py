@@ -40,7 +40,11 @@ lang = {
         'sound': 'Звук',
         'en/dis list 1': [('Включено', 1), ('Выключено', 0)],
         'en/dis list 0': [('Выключено', 0), ('Включено', 1)],
-        'level editor': 'Редактор уровней'
+        'level editor': 'Редактор уровней',
+        'width': 'Длина',
+        'height': 'Ширина',
+        'size desc': '(в блоках)',
+        'start': 'Начать'
     },
     'en': {
         'back': 'Back',
@@ -83,6 +87,10 @@ lang = {
         'sound': 'Sound',
         'en/dis list 1': [('Enabled', 1), ('Disabled', 0)],
         'en/dis list 0': [('Disabled', 0), ('Enabled', 1)],
-        'level editor': 'Level editor'
+        'level editor': 'Level editor',
+        'width': 'Width',
+        'height': 'Height',
+        'size desc': '(in blocks)',
+        'start': 'Start'
     }
 }

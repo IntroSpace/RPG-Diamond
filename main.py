@@ -1599,14 +1599,16 @@ class CellBoard:
     sand = pygame.transform.scale(load_image('sand.png'), (tile_size, tile_size))
     player_sprite = run_animation_RIGHT[0]
 
-    def __init__(self):
-        self.board = [[' ' for _ in range(WIDTH // tile_size + 1)] for _ in range(20)]
+    def __init__(self, l_width, l_height):
+        self.board = [[' ' for _ in range(l_width)] for _ in range(l_height)]
         self.cur_tile = 'L'
         self.spare_tile = ' '
         self.dx = self.dy = 0
         self.s_dx = self.s_dy = 0
         self.prev_x, self.prev_y = -1, -1
         self.size = tile_size
+        self.inventory_surf = pygame.Surface((tile_size * 11, tile_size * 7))
+        self.inventory_surf.set_alpha(215)
 
     def set_size(self, new_size):
         x, y = pygame.mouse.get_pos()
@@ -1655,6 +1657,11 @@ class CellBoard:
                 pygame.draw.rect(screen, CELL_CHOSEN_COLOR,
                                  (x * self.size + self.dx, y * self.size + self.dy,
                                   self.size, self.size), width=CELL_WIDTH * 3)
+            self.inventory_render()
+
+    def inventory_render(self):
+        self.inventory_surf.fill((20, 20, 20))
+        surface.blit(self.inventory_surf, (0, 0))
 
     def mouse_down(self, button):
         if button == 2:
@@ -1785,9 +1792,9 @@ def save_username(new_username):
     con.commit()
 
 
-def start_level_editor():
+def start_level_editor(l_width, l_height):
     global background
-    board = CellBoard()
+    board = CellBoard(l_width, l_height)
     background = Background()
     while True:
         background.render()
@@ -1825,6 +1832,18 @@ def start_level_editor():
         FPS_CLOCK.tick(FPS)
 
 
+def level_editor_menu():
+    submenu = pygame_menu.Menu(word.get("level editor"), WIDTH, HEIGHT,
+                               theme=pygame_menu.themes.THEME_DARK)
+    l_width = submenu.add.text_input(f'{word.get("width")} {word.get("size desc")}: ',
+                                     default=(WIDTH // tile_size + 1))
+    l_height = submenu.add.text_input(f'{word.get("height")} {word.get("size desc")}: ', default=20)
+    submenu.add.button(word.get("start"), lambda: start_level_editor(int(l_width.get_value()),
+                                                                     int(l_height.get_value())))
+    submenu.add.button(word.get("back"), submenu.disable)
+    submenu.mainloop(surface)
+
+
 menu = pygame_menu.Menu(word.get("welcome"), WIDTH, HEIGHT,
                         theme=pygame_menu.themes.THEME_DARK)
 
@@ -1832,7 +1851,7 @@ text_input = menu.add.text_input(f'{word.get("name")}: ', default=username, onch
 
 menu.add.button(word.get("play"), play_menu)
 menu.add.button(word.get("tutor"), start_tutorial)
-menu.add.button(word.get("level editor"), start_level_editor)
+menu.add.button(word.get("level editor"), level_editor_menu)
 menu.add.button(word.get("settings"), settings_menu)
 menu.add.button(word.get("quit"), pygame_menu.events.EXIT)
 menu.mainloop(surface)
