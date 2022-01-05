@@ -1618,7 +1618,6 @@ class CellBoard:
         self.inventory_surf.set_alpha(225)
         self.indent_x = (self.inventory_surf.get_width() - tile_size * 4) // 5
         y_count = ceil((len(self.objects) - 1) / 4 + 0.01)
-        print(y_count)
         self.indent_y = (self.inventory_surf.get_height() - tile_size * y_count) // (y_count + 1)
 
     def set_size(self, new_size):
