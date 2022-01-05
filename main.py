@@ -2,6 +2,7 @@ import os
 import random
 import sys
 import shutil
+from math import ceil
 
 import pygame
 import pygame_menu
@@ -1598,6 +1599,12 @@ class CellBoard:
     stone1 = pygame.transform.scale(load_image('stone1.png'), (tile_size, tile_size))
     sand = pygame.transform.scale(load_image('sand.png'), (tile_size, tile_size))
     player_sprite = run_animation_RIGHT[0]
+    bomb_sprite = bomb_idle[0]
+    objects = [bomb_idle[0],
+               pygame.transform.scale(load_image('land.png'), (tile_size, tile_size)),
+               pygame.transform.scale(load_image('stone1.png'), (tile_size, tile_size)),
+               pygame.transform.scale(load_image('sand.png'), (tile_size, tile_size)),
+               run_animation_RIGHT[0]]
 
     def __init__(self, l_width, l_height):
         self.board = [[' ' for _ in range(l_width)] for _ in range(l_height)]
@@ -1607,8 +1614,12 @@ class CellBoard:
         self.s_dx = self.s_dy = 0
         self.prev_x, self.prev_y = -1, -1
         self.size = tile_size
-        self.inventory_surf = pygame.Surface((tile_size * 11, tile_size * 7))
-        self.inventory_surf.set_alpha(215)
+        self.inventory_surf = pygame.Surface((tile_size * 9, tile_size * 6))
+        self.inventory_surf.set_alpha(225)
+        self.indent_x = (self.inventory_surf.get_width() - tile_size * 4) // 5
+        y_count = ceil((len(self.objects) - 1) / 4 + 0.01)
+        print(y_count)
+        self.indent_y = (self.inventory_surf.get_height() - tile_size * y_count) // (y_count + 1)
 
     def set_size(self, new_size):
         x, y = pygame.mouse.get_pos()
@@ -1661,6 +1672,10 @@ class CellBoard:
 
     def inventory_render(self):
         self.inventory_surf.fill((20, 20, 20))
+        for i, obj in enumerate(self.objects):
+            x, y = i % 4, i // 4
+            self.inventory_surf.blit(obj, (x * tile_size + (x + 1) * self.indent_x,
+                                           y * tile_size + (y + 1) * self.indent_y))
         surface.blit(self.inventory_surf, (0, 0))
 
     def mouse_down(self, button):
