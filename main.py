@@ -113,6 +113,7 @@ pygame.mixer.music.play(-1)
 CELL_COLOR = pygame.Color(245, 245, 245)
 CELL_CHOSEN_COLOR = pygame.Color(140, 185, 205)
 CELL_WIDTH = 1
+ITEM_CHOSEN_COLOR = pygame.Color(230, 235, 235)
 
 BG_COLOR = 45, 40, 40
 TEXT_COLOR = pygame.Color(115, 125, 125)
@@ -1600,11 +1601,11 @@ class CellBoard:
     sand = pygame.transform.scale(load_image('sand.png'), (tile_size, tile_size))
     player_sprite = run_animation_RIGHT[0]
     bomb_sprite = bomb_idle[0]
-    objects = [pygame.transform.scale(load_image('land.png'), (tile_size, tile_size)),
-               pygame.transform.scale(load_image('stone1.png'), (tile_size, tile_size)),
-               pygame.transform.scale(load_image('sand.png'), (tile_size, tile_size)),
-               run_animation_RIGHT[0],
-               bomb_idle[0]]
+    objects = [(pygame.transform.scale(load_image('land.png'), (tile_size, tile_size)), 'L'),
+               (pygame.transform.scale(load_image('stone1.png'), (tile_size, tile_size)), 'R'),
+               (pygame.transform.scale(load_image('sand.png'), (tile_size, tile_size)), 'S'),
+               (run_animation_RIGHT[0], 'P'),
+               (bomb_idle[0], 'Y')]
 
     def __init__(self, l_width, l_height):
         self.board = [[' ' for _ in range(l_width)] for _ in range(l_height)]
@@ -1620,6 +1621,9 @@ class CellBoard:
         self.indent_x = (self.inventory_surf.get_width() - tile_size * 4) // 5
         y_count = ceil((len(self.objects) - 1) / 4 + 0.01)
         self.indent_y = (self.inventory_surf.get_height() - tile_size * y_count) // (y_count + 1)
+        self.player_pos = -1, -1
+        self.tile_on_player = ' '
+        self.mouse_downed = False
 
     def set_size(self, new_size):
         x, y = pygame.mouse.get_pos()
@@ -1673,6 +1677,7 @@ class CellBoard:
                                      (x * self.size + self.dx, y * self.size + self.dy,
                                       self.size, self.size), width=CELL_WIDTH * 3)
             self.inventory_render()
+        self.mouse_downed = False
 
     def inventory_render(self):
         self.inventory_surf.fill((35, 35, 35))
@@ -1685,13 +1690,24 @@ class CellBoard:
             if self.counter > 140:
                 self.counter -= 6
                 self.inventory_surf.set_alpha(self.counter)
-        for i, obj in enumerate(self.objects):
+        if not self.mouse_downed or not self.prev_x == self.prev_y == -1:
+            pos = (-1, -1)
+        for i, (obj, char) in enumerate(self.objects):
             x, y = i % 4, i // 4
-            self.inventory_surf.blit(obj, (x * tile_size + (x + 1) * self.indent_x,
-                                           y * tile_size + (y + 1) * self.indent_y))
+            rect = obj.get_rect(topleft=(x * tile_size + (x + 1) * self.indent_x,
+                                         y * tile_size + (y + 1) * self.indent_y))
+            if rect.collidepoint(pos):
+                self.cur_tile = char
+            self.inventory_surf.blit(obj, rect.topleft)
+            if char == self.cur_tile:
+                pygame.draw.rect(self.inventory_surf, ITEM_CHOSEN_COLOR,
+                                 (x * tile_size + (x + 1) * self.indent_x,
+                                  y * tile_size + (y + 1) * self.indent_y,
+                                  tile_size, tile_size), width=CELL_WIDTH * 3)
         surface.blit(self.inventory_surf, (0, 0))
 
     def mouse_down(self, button):
+        self.mouse_downed = (button == 1)
         if self.inventory_surf.get_rect().collidepoint(pygame.mouse.get_pos()):
             return
         if button == 2:
@@ -1720,8 +1736,16 @@ class CellBoard:
         ind_x = x // self.size
         if 0 <= ind_y < len(self.board) and 0 <= ind_x < len(self.board[0]):
             if pygame.mouse.get_pressed()[0]:
+                if self.cur_tile == 'P' and self.player_pos != (ind_x, ind_y):
+                    player_x, player_y = self.player_pos
+                    self.board[player_y][player_x] = self.tile_on_player
+                    self.tile_on_player = self.board[ind_y][ind_x]
+                    self.player_pos = ind_x, ind_y
                 self.board[ind_y][ind_x] = self.cur_tile
             elif pygame.mouse.get_pressed()[2]:
+                if self.board[ind_y][ind_x] == 'P':
+                    self.player_pos = -1, -1
+                    self.tile_on_player = ' '
                 self.board[ind_y][ind_x] = self.spare_tile
 
     def key_pressed(self):
@@ -1729,12 +1753,19 @@ class CellBoard:
         mods = pygame.key.get_mods()
         if keys[pygame.K_p] and mods & pygame.KMOD_CTRL:
             x, y = pygame.mouse.get_pos()
+            if self.inventory_surf.get_rect().collidepoint(x, y):
+                return
             x -= self.dx
             y -= self.dy
             ind_y = y // self.size
             ind_x = x // self.size
             if 0 <= ind_y < len(self.board) and 0 <= ind_x < len(self.board[0]):
-                self.board[ind_y][ind_x] = 'P'
+                if self.player_pos != (ind_x, ind_y):
+                    player_x, player_y = self.player_pos
+                    self.board[player_y][player_x] = self.tile_on_player
+                    self.tile_on_player = self.board[ind_y][ind_x]
+                    self.player_pos = ind_x, ind_y
+                    self.board[ind_y][ind_x] = 'P'
 
     def get_level_map(self):
         res_board = [''.join(row) + '\n' for row in self.board]
