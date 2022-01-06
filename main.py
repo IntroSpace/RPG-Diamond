@@ -232,6 +232,12 @@ bomb_fall_down = cut_sheet('bomb/bomb_fall_down.png', 1)
 bomb_jump_up = cut_sheet('bomb/bomb_jump_up.png', 1)
 bomb_explode = sprites_by_directory('bomb_explode', 4)
 
+size_sprite = load_image('green_portal.png').get_width() // 8,\
+              load_image('green_portal.png').get_height() // 3
+teleport_sprite = pygame.transform.scale(load_image('green_portal.png')
+                                         .subsurface(pygame.Rect((0, 0), size_sprite)),
+                                         (tile_size, tile_size))
+
 life_states = [[] for i in range(len(heart_files))]
 for i, directory in enumerate(heart_files):
     final_dir = os.path.join('designs', directory)
@@ -1601,11 +1607,14 @@ class CellBoard:
     sand = pygame.transform.scale(load_image('sand.png'), (tile_size, tile_size))
     player_sprite = run_animation_RIGHT[0]
     bomb_sprite = bomb_idle[0]
+    teleport = teleport_sprite
+
     objects = [(pygame.transform.scale(load_image('land.png'), (tile_size, tile_size)), 'L'),
                (pygame.transform.scale(load_image('stone1.png'), (tile_size, tile_size)), 'R'),
                (pygame.transform.scale(load_image('sand.png'), (tile_size, tile_size)), 'S'),
                (run_animation_RIGHT[0], 'P'),
-               (bomb_idle[0], 'Y')]
+               (bomb_idle[0], 'Y'),
+               (teleport_sprite, 'E')]
 
     def __init__(self, l_width, l_height):
         self.board = [[' ' for _ in range(l_width)] for _ in range(l_height)]
@@ -1640,6 +1649,7 @@ class CellBoard:
         self.stone1 = pygame.transform.scale(load_image('stone1.png'), (self.size, self.size))
         self.sand = pygame.transform.scale(load_image('sand.png'), (self.size, self.size))
         self.bomb_sprite = pygame.transform.scale(bomb_idle[0], (self.size, self.size))
+        self.teleport = pygame.transform.scale(teleport_sprite, (self.size, self.size))
         spr = run_animation_RIGHT[0]
         self.player_sprite = pygame.transform.scale(spr, (spr.get_width() * self.size // tile_size,
                                                           spr.get_height() * self.size // tile_size))
@@ -1655,6 +1665,8 @@ class CellBoard:
             surface.blit(self.player_sprite, (x * self.size + self.dx, y * self.size + self.dy))
         if value == 'Y':
             surface.blit(self.bomb_sprite, (x * self.size + self.dx, y * self.size + self.dy))
+        if value == 'E':
+            surface.blit(self.teleport, (x * self.size + self.dx, y * self.size + self.dy))
 
     def render(self, screen):
         keys = pygame.key.get_pressed()
