@@ -31,7 +31,7 @@ new_sound = vol_sound
 pygame.init()
 WIDTH, HEIGHT = pygame.display.Info().current_w, pygame.display.Info().current_h
 # WIDTH, HEIGHT = 1504, 846
-# WIDTH, HEIGHT = 1008, 567
+WIDTH, HEIGHT = 1008, 567
 tile_size = HEIGHT // 20
 surface = pygame.display.set_mode((WIDTH, HEIGHT))
 ACC = 0.4
@@ -1632,6 +1632,8 @@ class CellBoard:
         self.indent_y = (self.inventory_surf.get_height() - tile_size * y_count) // (y_count + 1)
         self.player_pos = -1, -1
         self.tile_on_player = ' '
+        self.teleport_pos = -1, -1
+        self.tile_on_teleport = ' '
         self.mouse_downed = False
 
     def set_size(self, new_size):
@@ -1750,14 +1752,30 @@ class CellBoard:
             if pygame.mouse.get_pressed()[0]:
                 if self.cur_tile == 'P' and self.player_pos != (ind_x, ind_y):
                     player_x, player_y = self.player_pos
-                    self.board[player_y][player_x] = self.tile_on_player
+                    if self.board[player_y][player_x] == 'P':
+                        if self.tile_on_player == 'E' and self.player_pos != self.teleport_pos:
+                            self.board[player_y][player_x] = self.tile_on_player = ' '
+                        else:
+                            self.board[player_y][player_x] = self.tile_on_player
                     self.tile_on_player = self.board[ind_y][ind_x]
                     self.player_pos = ind_x, ind_y
+                elif self.cur_tile == 'E' and self.teleport_pos != (ind_x, ind_y):
+                    tel_x, tel_y = self.teleport_pos
+                    if self.board[tel_y][tel_x] == 'E':
+                        if self.tile_on_teleport == 'P' and self.player_pos != self.teleport_pos:
+                            self.board[tel_y][tel_x] = self.tile_on_teleport = ' '
+                        else:
+                            self.board[tel_y][tel_x] = self.tile_on_teleport
+                    self.tile_on_teleport = self.board[ind_y][ind_x]
+                    self.teleport_pos = ind_x, ind_y
                 self.board[ind_y][ind_x] = self.cur_tile
             elif pygame.mouse.get_pressed()[2]:
                 if self.board[ind_y][ind_x] == 'P':
                     self.player_pos = -1, -1
                     self.tile_on_player = ' '
+                if self.board[ind_y][ind_x] == 'E':
+                    self.teleport_pos = -1, -1
+                    self.tile_on_teleport = ' '
                 self.board[ind_y][ind_x] = self.spare_tile
 
     def key_pressed(self):
@@ -1774,7 +1792,11 @@ class CellBoard:
             if 0 <= ind_y < len(self.board) and 0 <= ind_x < len(self.board[0]):
                 if self.player_pos != (ind_x, ind_y):
                     player_x, player_y = self.player_pos
-                    self.board[player_y][player_x] = self.tile_on_player
+                    if self.board[player_y][player_x] == 'P':
+                        if self.tile_on_player == 'E' and self.player_pos != self.teleport_pos:
+                            self.board[player_y][player_x] = self.tile_on_player = ' '
+                        else:
+                            self.board[player_y][player_x] = self.tile_on_player
                     self.tile_on_player = self.board[ind_y][ind_x]
                     self.player_pos = ind_x, ind_y
                     self.board[ind_y][ind_x] = 'P'
@@ -1898,6 +1920,8 @@ def start_level_editor(l_width, l_height):
                 if event.key == pygame.K_s and pygame.key.get_mods() & pygame.KMOD_CTRL:
                     Level.save_level('test_level', board.get_level_map(), background.name)
                     background = None
+                if event.key == pygame.K_ESCAPE:
+                    return
         if background is None:
             break
         board.mouse_pressed()
