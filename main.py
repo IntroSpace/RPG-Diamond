@@ -35,7 +35,7 @@ WIDTH, HEIGHT = pygame.display.Info().current_w, pygame.display.Info().current_h
 tile_size = HEIGHT // 20
 surface = pygame.display.set_mode((WIDTH, HEIGHT))
 ACC = 0.4 * tile_size / 54
-FRIC = -0.10
+FRIC = - (0.09 + 0.01 * tile_size / 54)
 COUNT = 0
 vec = pygame.math.Vector2
 FPS = 60
@@ -766,8 +766,8 @@ class Enemy(pygame.sprite.Sprite):
         self.count += 1
 
     def move(self):
-        if 2 * tile_size - (self.vel.x - 1) // 2 <= abs(self.delta_x) \
-                <= 2 * tile_size + (self.vel.x - 1) // 2:
+        if 2 * tile_size - self.vel.x <= abs(self.delta_x) \
+                <= 2 * tile_size + self.vel.x:
             self.direction = self.direction * -1
         # ИИ врага
         if self.direction == 1:
@@ -790,8 +790,8 @@ class Enemy(pygame.sprite.Sprite):
 
 
 class Bat(Enemy):
-    def __init__(self, pos, angry_vel=(2, 1)):
-        super(Bat, self).__init__(load_image('bat_sprite.png'), 1, 5,
+    def __init__(self, pos, angry_vel=(2 * tile_size / 54, 1 * tile_size / 54)):
+        super(Bat, self).__init__(load_image('bat_sprite.png'), 1, 5 * tile_size / 54,
                                   pos[0] * tile_size, pos[1] * tile_size, 5, 3)
         self.angry_state = False
         self.angry_vel = vec(*angry_vel)
@@ -890,7 +890,7 @@ class Bat(Enemy):
 
 
 class Bomby(Enemy):
-    def __init__(self, pos, angry_vel=(2, 1)):
+    def __init__(self, pos):
         super(Bomby, self).__init__(0, 0, 0, 0, 0, 0, 0, skip=True)
         self.direction = 1
         self.frames = [bomb_idle, bomb_walk, bomb_fall_down, bomb_jump_up, bomb_explode]
@@ -902,11 +902,10 @@ class Bomby(Enemy):
         self.vel = vec(0, 0)
         self.jumping = False
         self.position = vec(pos[0] * tile_size, pos[1] * tile_size)
-        self.vel.x = 1
+        self.vel.x = 1 * tile_size / 54
         self.count = 0
         self.delta_x = 0
         self.angry_state = False
-        self.angry_vel = vec(*angry_vel)
         self.acc = vec(0, 0)
 
     def start(self):
@@ -1232,7 +1231,9 @@ class SpikeBall(Enemy):
         nums_x = range(-4, 5)
         nums_y = range(-7, -2)
         for _ in range(particle_count):
-            Particle(self.rect.center, random.choice(nums_x), random.choice(nums_y))
+            Particle(self.rect.center,
+                     random.choice(nums_x) * tile_size / 54,
+                     random.choice(nums_y) * tile_size / 54)
 
 
 heart = None
