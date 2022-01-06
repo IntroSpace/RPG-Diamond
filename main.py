@@ -34,7 +34,7 @@ WIDTH, HEIGHT = pygame.display.Info().current_w, pygame.display.Info().current_h
 # WIDTH, HEIGHT = 1008, 567
 tile_size = HEIGHT // 20
 surface = pygame.display.set_mode((WIDTH, HEIGHT))
-ACC = 0.4
+ACC = 0.4 * tile_size / 54
 FRIC = -0.10
 COUNT = 0
 vec = pygame.math.Vector2
@@ -519,7 +519,7 @@ class Player(pygame.sprite.Sprite):
                 if not self.block_left and rect.collidepoint(self.rect.midleft):
                     self.block_left = 1
         self.acc = vec(0, 0.5 * tile_size / 54)
-        if abs(self.vel.x) > 0.5:
+        if abs(self.vel.x) > 0.5 * tile_size / 54:
             self.running = True
         else:
             self.running = False
@@ -527,7 +527,7 @@ class Player(pygame.sprite.Sprite):
             self.acc.x = -ACC
         if pygame.key.get_pressed()[pygame.K_RIGHT]:
             self.acc.x = ACC
-        if abs(self.vel.x) < 0.4:
+        if abs(self.vel.x) < 0.4 * tile_size / 54:
             self.vel.x = 0
         self.acc.x += self.vel.x * FRIC
         self.vel += self.acc
@@ -575,7 +575,7 @@ class Player(pygame.sprite.Sprite):
                 self.direction = 'RIGHT'
             if self.vel.x < 0:
                 self.direction = 'LEFT'
-        if abs(self.vel.x) < 1 and self.move_frame != 0:
+        if abs(self.vel.x) < tile_size / 54 and self.move_frame != 0:
             self.move_frame = 0
             if self.direction == "RIGHT":
                 self.image = run_animation_RIGHT[self.move_frame // 2]
