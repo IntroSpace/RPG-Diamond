@@ -232,11 +232,24 @@ bomb_fall_down = cut_sheet('bomb/bomb_fall_down.png', 1)
 bomb_jump_up = cut_sheet('bomb/bomb_jump_up.png', 1)
 bomb_explode = sprites_by_directory('bomb_explode', 4)
 
-size_sprite = load_image('green_portal.png').get_width() // 8,\
-              load_image('green_portal.png').get_height() // 3
-teleport_sprite = pygame.transform.scale(load_image('green_portal.png')
-                                         .subsurface(pygame.Rect((0, 0), size_sprite)),
-                                         (tile_size, tile_size))
+
+def get_first_frame(sheet, col, row, pos=(0, 0)):
+    sprite_rect = pygame.Rect(0, 0, sheet.get_width() // col,
+                              sheet.get_height() // row)
+    rect = pygame.Rect(0, 0, tile_size, tile_size)
+    frame_location = (sprite_rect.w * pos[0], sprite_rect.h * pos[1])
+    return pygame.transform.scale(sheet.subsurface(
+        pygame.Rect(frame_location, sprite_rect.size)), rect.size)
+
+
+teleport_sprite = get_first_frame(load_image('green_portal.png'), 8, 3)
+spike_ball_sprite = get_first_frame(load_image('spike_ball.png'), 6, 1, pos=(2, 0))
+bat_sprite = get_first_frame(load_image('bat_sprite.png'), 5, 3, pos=(0, 1))
+# size_sprite = load_image('green_portal.png').get_width() // 8,\
+#               load_image('green_portal.png').get_height() // 3
+# teleport_sprite = pygame.transform.scale(load_image('green_portal.png')
+#                                          .subsurface(pygame.Rect((0, 0), size_sprite)),
+#                                          (tile_size, tile_size))
 
 life_states = [[] for i in range(len(heart_files))]
 for i, directory in enumerate(heart_files):
@@ -1609,16 +1622,21 @@ class CellBoard:
     player_sprite = run_animation_RIGHT[0]
     bomb_sprite = bomb_idle[0]
     teleport = teleport_sprite
+    bat_sprite = bat_sprite
+    spike_sprite = spike_ball_sprite
 
     objects = [(pygame.transform.scale(load_image('land.png'), (tile_size, tile_size)), 'L'),
                (pygame.transform.scale(load_image('stone1.png'), (tile_size, tile_size)), 'R'),
                (pygame.transform.scale(load_image('sand.png'), (tile_size, tile_size)), 'S'),
                (run_animation_RIGHT[0], 'P'),
                (bomb_idle[0], 'Y'),
+               (bat_sprite, 'B'),
+               (spike_ball_sprite, 'A'),
                (teleport_sprite, 'E')]
 
     def __init__(self, l_width, l_height):
         self.board = [[' ' for _ in range(l_width)] for _ in range(l_height)]
+        self.width, self.height = l_width, l_height
         self.cur_tile = 'L'
         self.spare_tile = ' '
         self.dx = self.dy = 0
@@ -1636,6 +1654,8 @@ class CellBoard:
         self.teleport_pos = -1, -1
         self.tile_on_teleport = ' '
         self.mouse_downed = False
+        self.rect_draw = -1, -1
+        self.rect_action = -1
 
     def set_size(self, new_size):
         x, y = pygame.mouse.get_pos()
@@ -1653,6 +1673,8 @@ class CellBoard:
         self.sand = pygame.transform.scale(load_image('sand.png'), (self.size, self.size))
         self.bomb_sprite = pygame.transform.scale(bomb_idle[0], (self.size, self.size))
         self.teleport = pygame.transform.scale(teleport_sprite, (self.size, self.size))
+        self.bat_sprite = pygame.transform.scale(bat_sprite, (self.size, self.size))
+        self.spike_sprite = pygame.transform.scale(spike_ball_sprite, (self.size, self.size))
         spr = run_animation_RIGHT[0]
         self.player_sprite = pygame.transform.scale(spr, (spr.get_width() * self.size // tile_size,
                                                           spr.get_height() * self.size // tile_size))
@@ -1660,16 +1682,20 @@ class CellBoard:
     def draw_item(self, x, y, value):
         if value == 'L':
             surface.blit(self.land, (x * self.size + self.dx, y * self.size + self.dy))
-        if value == 'R':
+        elif value == 'R':
             surface.blit(self.stone1, (x * self.size + self.dx, y * self.size + self.dy))
-        if value == 'S':
+        elif value == 'S':
             surface.blit(self.sand, (x * self.size + self.dx, y * self.size + self.dy))
-        if value == 'P':
+        elif value == 'P':
             surface.blit(self.player_sprite, (x * self.size + self.dx, y * self.size + self.dy))
-        if value == 'Y':
+        elif value == 'Y':
             surface.blit(self.bomb_sprite, (x * self.size + self.dx, y * self.size + self.dy))
-        if value == 'E':
+        elif value == 'E':
             surface.blit(self.teleport, (x * self.size + self.dx, y * self.size + self.dy))
+        elif value == 'B':
+            surface.blit(self.bat_sprite, (x * self.size + self.dx, y * self.size + self.dy))
+        elif value == 'A':
+            surface.blit(self.spike_sprite, (x * self.size + self.dx, y * self.size + self.dy))
 
     def render(self, screen):
         keys = pygame.key.get_pressed()
@@ -1683,10 +1709,31 @@ class CellBoard:
                                       self.size, self.size), width=CELL_WIDTH)
         if not (mods & pygame.KMOD_CTRL and keys[pygame.K_h]):
             x, y = pygame.mouse.get_pos()
-            if not self.inventory_surf.get_rect().collidepoint(x, y):
-                x -= self.dx
-                y -= self.dy
-                x, y = x // self.size, y // self.size
+            x -= self.dx
+            y -= self.dy
+            x, y = x // self.size, y // self.size
+            if self.rect_draw != (-1, -1):
+                draw_x, draw_y = self.rect_draw
+                f_x, f_y = draw_x, draw_y
+                w, h = x - draw_x + 1, y - draw_y + 1
+                if draw_x > x:
+                    f_x, w = x, draw_x - x + 1
+                if draw_y > y:
+                    f_y, h = y, draw_y - y + 1
+                if f_x + w > self.width:
+                    w = self.width - f_x
+                if f_y + h > self.height:
+                    h = self.height - f_y
+                if f_x < 0:
+                    w += f_x
+                    f_x = 0
+                if f_y < 0:
+                    h += f_y
+                    f_y = 0
+                pygame.draw.rect(screen, CELL_CHOSEN_COLOR,
+                                 (f_x * self.size + self.dx, f_y * self.size + self.dy,
+                                  w * self.size, h * self.size))
+            elif not self.inventory_surf.get_rect().collidepoint(x, y):
                 if 0 <= y < len(self.board) and 0 <= x < len(self.board[0]):
                     pygame.draw.rect(screen, CELL_CHOSEN_COLOR,
                                      (x * self.size + self.dx, y * self.size + self.dy,
@@ -1697,7 +1744,8 @@ class CellBoard:
     def inventory_render(self):
         self.inventory_surf.fill((35, 35, 35))
         pos = pygame.mouse.get_pos()
-        if self.inventory_surf.get_rect().collidepoint(pos) and self.prev_x == self.prev_y == -1:
+        if self.inventory_surf.get_rect().collidepoint(pos) and self.prev_x == self.prev_y == -1\
+                and self.rect_draw == (-1, -1):
             if self.counter < 236:
                 self.counter += 4
                 self.inventory_surf.set_alpha(self.counter)
@@ -1725,6 +1773,16 @@ class CellBoard:
         self.mouse_downed = (button == 1)
         if self.inventory_surf.get_rect().collidepoint(pygame.mouse.get_pos()):
             return
+        if pygame.key.get_mods() & pygame.KMOD_SHIFT \
+                and (button == 1 and self.cur_tile not in 'PE' or button == 3):
+            x, y = pygame.mouse.get_pos()
+            x -= self.dx
+            y -= self.dy
+            ind_y = y // self.size
+            ind_x = x // self.size
+            if 0 <= ind_y < len(self.board) and 0 <= ind_x < len(self.board[0]):
+                self.rect_draw = ind_x, ind_y
+                self.rect_action = button
         if button == 2:
             self.prev_x, self.prev_y = pygame.mouse.get_pos()
         if button == 5 and self.size > tile_size // 5:
@@ -1733,6 +1791,33 @@ class CellBoard:
             self.set_size(self.size + 3)
 
     def mouse_up(self, button):
+        if self.rect_draw != (-1, -1) and button == self.rect_action:
+            x, y = pygame.mouse.get_pos()
+            x -= self.dx
+            y -= self.dy
+            x, y = x // self.size, y // self.size
+            draw_x, draw_y = self.rect_draw
+            f_x, f_y = draw_x, draw_y
+            w, h = x - draw_x + 1, y - draw_y + 1
+            if draw_x > x:
+                f_x, w = x, draw_x - x + 1
+            if draw_y > y:
+                f_y, h = y, draw_y - y + 1
+            if f_x + w > self.width:
+                w = self.width - f_x
+            if f_y + h > self.height:
+                h = self.height - f_y
+            if f_x < 0:
+                w += f_x
+                f_x = 0
+            if f_y < 0:
+                h += f_y
+                f_y = 0
+            cur_tile = self.spare_tile if self.rect_action == 3 else self.cur_tile
+            for y in range(f_y, f_y + h):
+                for x in range(f_x, f_x + w):
+                    self.board[y][x] = cur_tile
+            self.rect_draw = -1, -1
         if button == 2:
             self.prev_x, self.prev_y = -1, -1
             self.s_dx = self.dx
@@ -1744,6 +1829,8 @@ class CellBoard:
             self.dx = self.s_dx + x - self.prev_x
             self.dy = self.s_dy + y - self.prev_y
         if self.inventory_surf.get_rect().collidepoint(x, y):
+            return
+        if self.rect_draw != (-1, -1):
             return
         x -= self.dx
         y -= self.dy
