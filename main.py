@@ -122,6 +122,7 @@ END_TEXT_COLOR = 245, 245, 245
 TEXT_SHIFT = game_font.render(f'{word.get("your score")}: 0   ©',
                               True, TEXT_COLOR).get_width() // 1.4 + 15
 MANA_COLOR = pygame.Color(49, 105, 168)
+CUSTOM_LEVELS_DIRECTORY = os.path.join('levels/custom')
 
 enemies = list()
 
@@ -471,7 +472,8 @@ class Level:
 
     @staticmethod
     def save_level(filename, data, background_name):
-        with open(f'levels/{filename}.map', mode='w', encoding='utf8') as f:
+        filename = os.path.join(CUSTOM_LEVELS_DIRECTORY, f'{filename}.map')
+        with open(filename, mode='w', encoding='utf8') as f:
             f.writelines([background_name + '\n', *data])
 
 
@@ -1001,12 +1003,6 @@ class Bomby(Enemy):
         if self.direction == -1:
             self.position.x -= self.vel.x
             self.delta_x += self.vel.x
-        # if self.block_left:
-        #     if self.vel.x < 0 or (self.vel.x == 0 and self.acc.x < 0):
-        #         self.acc.x = self.vel.x = 0
-        # if self.block_right:
-        #     if self.vel.x > 0 or (self.vel.x == 0 and self.acc.x > 0):
-        #         self.acc.x = self.vel.x = 0
         self.rect.topleft = self.position
 
     def move_y(self):
@@ -1350,7 +1346,7 @@ def end_the_game():
         center_x = WIDTH // 2
         center_y = HEIGHT // 2
         text = mana_font.render(f'{max(heart.heart, 0)} {word.get("of")} '
-                                f'{len(life_states) - 1} {word.get("lifes")}',
+                                f'{len(life_states) - 1} {word.get("lives")}',
                                 True, END_TEXT_COLOR)
         text_h = HEIGHT * 0.049
         text_w = text.get_width() * text_h / text.get_height()
@@ -1396,7 +1392,7 @@ def end_the_game():
 
 
 world = level_num = player = portal = None
-levels = ['test_level', 'level1', 'level2', 'level3']
+levels = [os.path.join('custom', 'test_level'), 'level1', 'level2', 'level3']
 
 
 def play_menu():
@@ -1445,18 +1441,6 @@ def start_the_game():
                             mana.mana -= 6
                             player.attacking = True
                             FireBall()
-                if event.type == pygame.DROPFILE:
-                    try:
-                        start_file = os.path.basename(event.file)
-                        filename, file_extension = os.path.splitext(start_file)
-                        if file_extension in ['.png', '.jpg', '.bmp']:
-                            final_file = os.path.abspath(
-                                os.path.join(os.path.join('data', 'backgrounds'), start_file))
-                            if not os.path.isfile(final_file):
-                                shutil.copyfile(event.file, final_file)
-                            background = Background(start_file)
-                    except Exception:
-                        pass
             keys = pygame.key.get_pressed()
             if keys[pygame.K_DELETE]:
                 world.key_dx = WORLD_VEL
@@ -1633,9 +1617,23 @@ class CellBoard:
                (spike_ball_sprite, 'A'),
                (teleport_sprite, 'E')]
 
-    def __init__(self, l_width, l_height):
-        self.board = [[' ' for _ in range(l_width)] for _ in range(l_height)]
-        self.width, self.height = l_width, l_height
+    def __init__(self, level_name, l_width, l_height):
+        global background
+        filename = os.path.join(CUSTOM_LEVELS_DIRECTORY, f'{level_name}.map')
+        if l_width == l_height == -1:
+            with open(filename, mode='r', encoding='utf8') as f:
+                data = list(map(lambda x: x.replace('\n', ''), f.readlines()))
+            index = 1
+            try:
+                background = Background(data[0])
+            except FileNotFoundError:
+                background = Background()
+                index = 0
+            self.board = [list(row) for row in data[index:]]
+        else:
+            self.board = [[' ' for _ in range(l_width)] for _ in range(l_height)]
+            background = Background()
+        self.width, self.height = len(self.board[0]), len(self.board)
         self.cur_tile = 'L'
         self.spare_tile = ' '
         self.dx = self.dy = 0
@@ -1976,10 +1974,9 @@ def save_username(new_username):
     con.commit()
 
 
-def start_level_editor(l_width, l_height):
+def start_level_editor(level_name, l_width, l_height):
     global background
-    board = CellBoard(l_width, l_height)
-    background = Background()
+    board = CellBoard(level_name, l_width, l_height)
     while True:
         background.render()
         for event in pygame.event.get():
@@ -2005,7 +2002,7 @@ def start_level_editor(l_width, l_height):
                 board.mouse_up(event.button)
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_s and pygame.key.get_mods() & pygame.KMOD_CTRL:
-                    save_level_menu(board.get_level_map())
+                    save_level_menu(level_name, board.get_level_map())
                 if event.key == pygame.K_ESCAPE:
                     return
         if background is None:
@@ -2023,10 +2020,10 @@ def save_level_func(level_name, level_map):
     background = None
 
 
-def save_level_menu(level_map):
+def save_level_menu(default_level_name, level_map):
     submenu = pygame_menu.Menu(word.get("save level"), WIDTH, HEIGHT,
                                theme=pygame_menu.themes.THEME_DARK)
-    level_name = submenu.add.text_input(f'{word.get("level name")}: ', default='test_level')
+    level_name = submenu.add.text_input(f'{word.get("level name")}: ', default=default_level_name)
     submenu.add.button(word.get("save level"),
                        lambda: (save_level_func(level_name.get_value(), level_map),
                                 submenu.disable()))
@@ -2037,11 +2034,41 @@ def save_level_menu(level_map):
 def level_editor_menu():
     submenu = pygame_menu.Menu(word.get("level editor"), WIDTH, HEIGHT,
                                theme=pygame_menu.themes.THEME_DARK)
+    level_name = submenu.add.text_input(f'{word.get("level name")}: ', default='test_level')
+    submenu.add.button(word.get("start"),
+                       lambda: level_editor_menu__next_step(level_name.get_value()))
+    submenu.add.button(word.get("back"), submenu.disable)
+    submenu.mainloop(surface)
+
+
+def check_width_and_height(level_name, warning, l_width, l_height):
+    if l_width < 1 or l_height < 1:
+        warning.set_title(word.get("warning level 1"))
+        warning.show()
+    elif l_width * l_height < 2:
+        warning.set_title(word.get("warning level 2"))
+        warning.show()
+    else:
+        start_level_editor(level_name, l_width, l_height)
+
+
+def level_editor_menu__next_step(level_name):
+    filename = os.path.join(CUSTOM_LEVELS_DIRECTORY, f'{level_name}.map')
+    if os.path.isfile(filename):
+        start_level_editor(level_name, -1, -1)
+        return
+    submenu = pygame_menu.Menu(word.get("level editor"), WIDTH, HEIGHT,
+                               theme=pygame_menu.themes.THEME_DARK)
+    warning = submenu.add.label(word.get("warning level 1"), font_color=pygame.Color('#B33A3A'))
+    warning.hide()
     l_width = submenu.add.text_input(f'{word.get("width")} {word.get("size desc")}: ',
-                                     default=(WIDTH // tile_size + 1))
-    l_height = submenu.add.text_input(f'{word.get("height")} {word.get("size desc")}: ', default=20)
-    submenu.add.button(word.get("start"), lambda: start_level_editor(int(l_width.get_value()),
-                                                                     int(l_height.get_value())))
+                                     default=(WIDTH // tile_size + 1),
+                                     onchange=lambda *_: warning.hide())
+    l_height = submenu.add.text_input(f'{word.get("height")} {word.get("size desc")}: ',
+                                      default=20, onchange=lambda *_: warning.hide())
+    submenu.add.button(word.get("start"), lambda: check_width_and_height(level_name, warning,
+                                                                         int(l_width.get_value()),
+                                                                         int(l_height.get_value())))
     submenu.add.button(word.get("back"), submenu.disable)
     submenu.mainloop(surface)
 

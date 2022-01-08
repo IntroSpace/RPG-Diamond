@@ -17,7 +17,7 @@ lang = {
         'coins': 'монет',
         'enemies': 'врагов',
         'levels': 'уровней',
-        'lifes': 'жизней',
+        'lives': 'жизней',
         'not found': 'не найден',
         'of': 'из',
         'choose lang': 'Изменить язык',
@@ -46,7 +46,9 @@ lang = {
         'size desc': '(в блоках)',
         'start': 'Начать',
         'save level': 'Сохранить уровень',
-        'level name': 'Название уровня'
+        'level name': 'Название уровня',
+        'warning level 1': 'Ширина и высота должны быть положительными числами',
+        'warning level 2': 'В уровне должно быть минмум 2 клетки'
     },
     'en': {
         'back': 'Back',
@@ -66,7 +68,7 @@ lang = {
         'coins': 'coins',
         'enemies': 'enemies',
         'levels': 'levels',
-        'lifes': 'lifes',
+        'lives': 'lives',
         'not found': 'not found',
         'of': 'of',
         'choose lang': 'Change language',
@@ -95,6 +97,8 @@ lang = {
         'size desc': '(in blocks)',
         'start': 'Start',
         'save level': 'Save level',
-        'level name': 'Level name'
+        'level name': 'Level name',
+        'warning level 1': 'Width and Height must be positive',
+        'warning level 2': 'The level must have at least 2 cells'
     }
 }
