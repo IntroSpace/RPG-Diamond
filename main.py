@@ -2014,6 +2014,7 @@ def start_level_editor(level_name, l_width, l_height):
         board.key_pressed()
         board.render(surface)
         pygame.display.flip()
+        FPS_CLOCK.tick(FPS)
 
 
 def save_level_func(level_name, level_map):
