@@ -1699,11 +1699,14 @@ class CellBoard:
         mods = pygame.key.get_mods()
         for y, row in enumerate(self.board):
             for x, cell in enumerate(row):
+                if (x_start := x * self.size + self.dx) + self.size < 0\
+                        or (y_start := y * self.size + self.dy) + self.size < 0\
+                        or x_start > WIDTH or y_start > HEIGHT:
+                    continue
                 self.draw_item(x, y, cell)
                 if not (mods & pygame.KMOD_CTRL and keys[pygame.K_h]):
                     pygame.draw.rect(screen, CELL_COLOR,
-                                     (x * self.size + self.dx, y * self.size + self.dy,
-                                      self.size, self.size), width=CELL_WIDTH)
+                                     (x_start, y_start, self.size, self.size), width=CELL_WIDTH)
         if not (mods & pygame.KMOD_CTRL and keys[pygame.K_h]):
             x, y = pygame.mouse.get_pos()
             x -= self.dx
@@ -2011,7 +2014,6 @@ def start_level_editor(level_name, l_width, l_height):
         board.key_pressed()
         board.render(surface)
         pygame.display.flip()
-        FPS_CLOCK.tick(FPS)
 
 
 def save_level_func(level_name, level_map):
@@ -2041,7 +2043,13 @@ def level_editor_menu():
     submenu.mainloop(surface)
 
 
-def check_width_and_height(level_name, warning, l_width, l_height):
+def check_width_and_height(submenu, level_name, warning, l_width, l_height):
+    if not l_width.isnumeric() or not l_height.isnumeric():
+        warning.set_title(word.get("warning level 0"))
+        warning.show()
+        return
+    else:
+        l_width, l_height = int(l_width), int(l_height)
     if l_width < 1 or l_height < 1:
         warning.set_title(word.get("warning level 1"))
         warning.show()
@@ -2049,6 +2057,7 @@ def check_width_and_height(level_name, warning, l_width, l_height):
         warning.set_title(word.get("warning level 2"))
         warning.show()
     else:
+        submenu.disable()
         start_level_editor(level_name, l_width, l_height)
 
 
@@ -2066,9 +2075,10 @@ def level_editor_menu__next_step(level_name):
                                      onchange=lambda *_: warning.hide())
     l_height = submenu.add.text_input(f'{word.get("height")} {word.get("size desc")}: ',
                                       default=20, onchange=lambda *_: warning.hide())
-    submenu.add.button(word.get("start"), lambda: check_width_and_height(level_name, warning,
-                                                                         int(l_width.get_value()),
-                                                                         int(l_height.get_value())))
+    submenu.add.button(word.get("start"), lambda: check_width_and_height(submenu, level_name,
+                                                                         warning,
+                                                                         l_width.get_value(),
+                                                                         l_height.get_value()))
     submenu.add.button(word.get("back"), submenu.disable)
     submenu.mainloop(surface)
 
