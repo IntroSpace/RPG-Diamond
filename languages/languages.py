@@ -44,7 +44,9 @@ lang = {
         'width': 'Длина',
         'height': 'Ширина',
         'size desc': '(в блоках)',
-        'start': 'Начать'
+        'start': 'Начать',
+        'save level': 'Сохранить уровень',
+        'level name': 'Название уровня'
     },
     'en': {
         'back': 'Back',
@@ -91,6 +93,8 @@ lang = {
         'width': 'Width',
         'height': 'Height',
         'size desc': '(in blocks)',
-        'start': 'Start'
+        'start': 'Start',
+        'save level': 'Save level',
+        'level name': 'Level name'
     }
 }

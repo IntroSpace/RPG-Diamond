@@ -161,6 +161,7 @@ def load_image(name, colorkey=None, size=None):
     else:
         image = image.convert_alpha()
     if size is not None:
+        size -= 1
         delta = size / 54
         image = pygame.transform.scale(image, (int(image.get_width() * delta),
                                                int(image.get_height() * delta)))
@@ -477,7 +478,7 @@ class Level:
 class Player(pygame.sprite.Sprite):
     def __init__(self, pos, score=0):
         super().__init__(all_sprites)
-        self.image = load_image("Player_Sprite_R.png", size=tile_size)
+        self.image = run_animation_RIGHT[0]
         self.rect = self.image.get_rect()
         self.mask = pygame.mask.from_surface(self.image)
         self.experience = 0
@@ -551,12 +552,12 @@ class Player(pygame.sprite.Sprite):
             if self.vel.x > 0 or (self.vel.x == 0 and self.acc.x > 0):
                 self.acc.x = self.vel.x = 0
         self.pos += self.vel + 0.5 * self.acc
-        self.rect.midbottom = self.pos
+        self.rect.bottomleft = self.pos
 
     def world_shift(self, dx, dy):
         self.pos.x += dx
         self.pos.y += dy
-        self.rect.midbottom = self.pos
+        self.rect.bottomleft = self.pos
 
     def update(self):
         if len(fireball_group.sprites()) == 0:
@@ -1076,28 +1077,26 @@ class FireBall(pygame.sprite.Sprite):
         super().__init__(all_sprites, fireball_group)
         self.direction = player.direction
         if self.direction == "RIGHT":
-            self.image = load_image("fire_R.png")
+            self.image = load_image("fire_R.png", size=tile_size - 10)
         else:
-            self.image = load_image("fire_L.png")
-        self.rect = self.image.get_rect(center=player.pos)
-        self.rect.x = player.pos.x
-        self.rect.y = player.pos.y - 40
+            self.image = load_image("fire_L.png", size=tile_size - 10)
+        self.rect = self.image.get_rect(center=player.rect.center)
 
     def fire(self):
         player.magic_cooldown = 0
         # Запускается пока снаряд находится в рамках экрана
         if -10 < self.rect.x < WIDTH:
             if self.direction == "RIGHT":
-                self.image = load_image("fire_R.png")
+                self.image = load_image("fire_R.png", size=tile_size - 10)
                 surface.blit(self.image, self.rect)
             else:
-                self.image = load_image("fire_L.png")
+                self.image = load_image("fire_L.png", size=tile_size - 10)
                 surface.blit(self.image, self.rect)
 
             if self.direction == "RIGHT":
-                self.rect.move_ip(12, 0)
+                self.rect.move_ip(12 * tile_size / 54, 0)
             else:
-                self.rect.move_ip(-12, 0)
+                self.rect.move_ip(-12 * tile_size / 54, 0)
         else:
             self.kill()
             player.attacking = False
@@ -1105,7 +1104,7 @@ class FireBall(pygame.sprite.Sprite):
         if pygame.sprite.spritecollide(self, other_group, False):
             for sprite in pygame.sprite.spritecollide(self, other_group, False):
                 if isinstance(sprite, Enemy):
-                    if not sprite.is_killed():
+                    if not sprite.is_killed() and not isinstance(sprite, SpikeBall):
                         global enemies_killed, cur_enemies_killed
                         enemies_killed += 1
                         cur_enemies_killed += 1
@@ -2006,8 +2005,7 @@ def start_level_editor(l_width, l_height):
                 board.mouse_up(event.button)
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_s and pygame.key.get_mods() & pygame.KMOD_CTRL:
-                    Level.save_level('test_level', board.get_level_map(), background.name)
-                    background = None
+                    save_level_menu(board.get_level_map())
                 if event.key == pygame.K_ESCAPE:
                     return
         if background is None:
@@ -2017,6 +2015,23 @@ def start_level_editor(l_width, l_height):
         board.render(surface)
         pygame.display.flip()
         FPS_CLOCK.tick(FPS)
+
+
+def save_level_func(level_name, level_map):
+    global background
+    Level.save_level(level_name, level_map, background.name)
+    background = None
+
+
+def save_level_menu(level_map):
+    submenu = pygame_menu.Menu(word.get("save level"), WIDTH, HEIGHT,
+                               theme=pygame_menu.themes.THEME_DARK)
+    level_name = submenu.add.text_input(f'{word.get("level name")}: ', default='test_level')
+    submenu.add.button(word.get("save level"),
+                       lambda: (save_level_func(level_name.get_value(), level_map),
+                                submenu.disable()))
+    submenu.add.button(word.get("back"), submenu.disable)
+    submenu.mainloop(surface)
 
 
 def level_editor_menu():
