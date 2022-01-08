@@ -49,7 +49,8 @@ lang = {
         'level name': 'Название уровня',
         'warning level 0': 'Ширина и Высота должны быть целыми числами',
         'warning level 1': 'Ширина и Высота должны быть положительными числами',
-        'warning level 2': 'В уровне должно быть минмум 2 клетки'
+        'warning level 2': 'В уровне должно быть минимум 2 клетки',
+        'warning level 3': 'В уровне должно быть не больше 10626 клеток'
     },
     'en': {
         'back': 'Back',
@@ -101,6 +102,7 @@ lang = {
         'level name': 'Level name',
         'warning level 0': 'Width and Height must be integers',
         'warning level 1': 'Width and Height must be positive',
-        'warning level 2': 'The level must have at least 2 cells'
+        'warning level 2': 'The level must have at least 2 cells',
+        'warning level 3': 'There should be no more than 10626 cells in level'
     }
 }

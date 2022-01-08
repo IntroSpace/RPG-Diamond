@@ -2057,6 +2057,9 @@ def check_width_and_height(submenu, level_name, warning, l_width, l_height):
     elif l_width * l_height < 2:
         warning.set_title(word.get("warning level 2"))
         warning.show()
+    elif l_width * l_height > 10626:
+        warning.set_title(word.get("warning level 3"))
+        warning.show()
     else:
         submenu.disable()
         start_level_editor(level_name, l_width, l_height)
