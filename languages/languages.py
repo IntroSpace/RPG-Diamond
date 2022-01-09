@@ -52,7 +52,9 @@ lang = {
         'warning level 2': 'В уровне должно быть минимум 2 клетки',
         'warning level 3': 'В уровне должно быть не больше 10626 клеток',
         'play customs': 'Играть в свои уровни',
-        'select level': 'Выберите уровень: '
+        'select level': 'Выберите уровень: ',
+        'custom levels': 'Ваши уровни',
+        'warning custom lvl': "Этот уровень не работает"
     },
     'en': {
         'back': 'Back',
@@ -107,6 +109,8 @@ lang = {
         'warning level 2': 'The level must have at least 2 cells',
         'warning level 3': 'There should be no more than 10626 cells in level',
         'play customs': 'Play custom levels',
-        'select level': 'Select level: '
+        'select level': 'Select level: ',
+        'custom levels': 'Your levels',
+        'warning custom lvl': "This level doesn't work"
     }
 }

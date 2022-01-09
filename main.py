@@ -249,6 +249,7 @@ def get_first_frame(sheet, col, row, pos=(0, 0)):
 teleport_sprite = get_first_frame(load_image('green_portal.png'), 8, 3)
 spike_ball_sprite = get_first_frame(load_image('spike_ball.png'), 6, 1, pos=(2, 0))
 bat_sprite = get_first_frame(load_image('bat_sprite.png'), 5, 3, pos=(0, 1))
+coin_sprite = get_first_frame(load_image('coin_yellow.png'), 5, 1)
 # size_sprite = load_image('green_portal.png').get_width() // 8,\
 #               load_image('green_portal.png').get_height() // 3
 # teleport_sprite = pygame.transform.scale(load_image('green_portal.png')
@@ -1656,6 +1657,7 @@ class CellBoard:
     teleport = teleport_sprite
     bat_sprite = bat_sprite
     spike_sprite = spike_ball_sprite
+    coin_sprite = coin_sprite
 
     objects = [(pygame.transform.scale(load_image('land.png'), (tile_size, tile_size)), 'L'),
                (pygame.transform.scale(load_image('stone1.png'), (tile_size, tile_size)), 'R'),
@@ -1664,7 +1666,8 @@ class CellBoard:
                (bomb_idle[0], 'Y'),
                (bat_sprite, 'B'),
                (spike_ball_sprite, 'A'),
-               (teleport_sprite, 'E')]
+               (teleport_sprite, 'E'),
+               (coin_sprite, 'C')]
 
     def __init__(self, level_name, l_width, l_height):
         global background
@@ -1722,6 +1725,8 @@ class CellBoard:
         self.teleport = pygame.transform.scale(teleport_sprite, (self.size, self.size))
         self.bat_sprite = pygame.transform.scale(bat_sprite, (self.size, self.size))
         self.spike_sprite = pygame.transform.scale(spike_ball_sprite, (self.size, self.size))
+        self.spike_sprite = pygame.transform.scale(spike_ball_sprite, (self.size, self.size))
+        self.coin_sprite = pygame.transform.scale(coin_sprite, (self.size, self.size))
         spr = run_animation_RIGHT[0]
         self.player_sprite = pygame.transform.scale(spr, (spr.get_width() * self.size // tile_size,
                                                           spr.get_height() * self.size // tile_size))
@@ -1743,6 +1748,8 @@ class CellBoard:
             surface.blit(self.bat_sprite, (x * self.size + self.dx, y * self.size + self.dy))
         elif value == 'A':
             surface.blit(self.spike_sprite, (x * self.size + self.dx, y * self.size + self.dy))
+        elif value == 'C':
+            surface.blit(self.coin_sprite, (x * self.size + self.dx, y * self.size + self.dy))
 
     def render(self, screen):
         keys = pygame.key.get_pressed()
