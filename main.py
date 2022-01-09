@@ -483,7 +483,6 @@ class Player(pygame.sprite.Sprite):
     def __init__(self, pos, score=0):
         super().__init__(all_sprites)
         self.image = run_animation_RIGHT[0]
-        self.rect = self.image.get_rect()
         self.mask = pygame.mask.from_surface(self.image)
         self.experience = 0
         # Атака
@@ -496,6 +495,7 @@ class Player(pygame.sprite.Sprite):
         # Позиция и направление
         self.vx = 0
         self.pos = vec((pos[0] * tile_size, pos[1] * tile_size))
+        self.rect = self.image.get_rect(topleft=self.pos)
         self.vel = vec(0, 0)
         self.acc = vec(0, 0)
         self.direction = "RIGHT"
@@ -920,7 +920,7 @@ class Bomby(Enemy):
         self.vel = vec(0, 0)
         self.jumping = False
         self.position = vec(pos[0] * tile_size, pos[1] * tile_size)
-        self.vel.x = 1 * tile_size / 54
+        self.vel.x = tile_size / 54
         self.count = 0
         self.delta_x = 0
         self.angry_state = False
@@ -940,8 +940,6 @@ class Bomby(Enemy):
         return self.frame[0] == 4
 
     def update(self):
-        if not self.jumping and pygame.key.get_pressed()[pygame.K_y]:
-            self.jump()
         if not self.is_killed():
             self.move()
         self.move_y()
@@ -978,26 +976,36 @@ class Bomby(Enemy):
         if 2 * tile_size - self.vel.x <= abs(self.delta_x) \
                 <= 2 * tile_size + self.vel.x:
             self.direction = self.direction * -1
-        sprite_list = pygame.sprite.spritecollide(self, tiles_group, False)
-        if not sprite_list:
-            if self.direction != -1:
-                self.rect.right += 5
-                for sprite in pygame.sprite.spritecollide(self, tiles_group, False):
-                    if isinstance(sprite, Portal):
-                        continue
-                    rect = sprite.rect
-                    if rect.collidepoint(self.rect.midright):
-                        self.direction = -1
-                self.rect.right -= 5
-            if self.direction != 1:
-                self.rect.left -= 5
-                for sprite in pygame.sprite.spritecollide(self, tiles_group, False):
-                    if isinstance(sprite, Portal):
-                        continue
-                    rect = sprite.rect
-                    if rect.collidepoint(self.rect.midleft):
-                        self.direction = 1
-                self.rect.left += 5
+        block_left, block_right = 0, 0
+        if self.direction != -1:
+            self.rect.right += 1
+            for sprite in pygame.sprite.spritecollide(self, tiles_group, False):
+                if isinstance(sprite, Portal):
+                    continue
+                rect = sprite.rect
+                m_x, m_y = self.rect.midright
+                if rect.collidepoint((m_x, m_y))\
+                        and not rect.collidepoint((m_x - 2, m_y)):
+                    block_right = 1
+                    self.direction = -1
+                    break
+            self.rect.right -= 1
+        if self.direction != 1:
+            self.rect.left -= 1
+            for sprite in pygame.sprite.spritecollide(self, tiles_group, False):
+                if isinstance(sprite, Portal):
+                    continue
+                rect = sprite.rect
+                m_x, m_y = self.rect.midleft
+                if rect.collidepoint((m_x, m_y))\
+                        and not rect.collidepoint((m_x + 2, m_y)):
+                    block_left = 1
+                    self.direction = 1
+                    break
+            self.rect.left += 1
+        if block_left == block_right == 1:
+            self.frame = 0, self.frame[1] % len(self.frames[0])
+            self.direction = 0
         # ИИ врага
         if self.direction == 1:
             self.position.x += self.vel.x
@@ -1015,21 +1023,17 @@ class Bomby(Enemy):
         self.position.y += int(0.5 * self.acc.y)
         self.rect.topleft = self.position
 
-    def jump(self):
-        if not self.jumping:
-            self.jumping = True
-            self.vel.y = -12
-
     def gravity_check(self):
         if self.vel.y > 0:
             if pygame.sprite.spritecollide(self, tiles_group, False):
                 for sprite in pygame.sprite.spritecollide(self, tiles_group, False):
                     if isinstance(sprite, Portal):
                         continue
-                    self.jumping = False
-                    self.vel.y = self.acc.y = 0
-                    self.rect.bottom = sprite.rect.top
-                    self.position.y = self.rect.top
+                    if -9 < sprite.rect.top - self.rect.bottom < 9:
+                        self.jumping = False
+                        self.vel.y = self.acc.y = 0
+                        self.rect.bottom = sprite.rect.top
+                        self.position.y = self.rect.top
         elif self.vel.y < 0:
             sprite = pygame.sprite.spritecollide(self, tiles_group, False)
             if sprite:
@@ -1408,13 +1412,17 @@ def choose_custom_level():
             custom_levels.append((filename[:-4], len(custom_levels)))
     submenu = pygame_menu.Menu(word.get("custom levels"), WIDTH, HEIGHT,
                                theme=pygame_menu.themes.THEME_DARK)
+    warning = submenu.add.label(word.get("warning custom lvl"), font_color=pygame.Color('#B33A3A'))
+    warning.hide()
     lvl_select = submenu.add.dropselect(
         title=word.get("select level"),
         items=custom_levels,
-        default=0
+        default=0,
+        onchange=lambda *_: warning.hide()
     )
     submenu.select_widget(submenu.add.button(word.get("play"),
-                                             lambda: start_the_game(lvl_select.get_value()[0][0])))
+                                             lambda: start_the_game((warning,
+                                                                    lvl_select.get_value()[0][0]))))
     submenu.add.button(word.get("back"), submenu.disable)
     submenu.mainloop(surface)
 
@@ -1433,7 +1441,7 @@ def play_menu():
     submenu.mainloop(surface)
 
 
-def start_the_game(other_level=None):
+def start_the_game(other_info=None):
     global world, level_num, player, portal, player_state, mana, completed_levels, background, \
         heart, player_mana_state, max_values, enemies_killed, cur_enemies_killed, prev_level_num,\
         levels
@@ -1445,11 +1453,22 @@ def start_the_game(other_level=None):
     player_mana_state = mana.mana
     max_values = [0, 0]
     enemies_killed = cur_enemies_killed = 0
-    if other_level is None:
+    if other_info is None:
         levels = GAME_LEVELS
+        player, portal, level_num = load_level_from_list(levels, level_num)
     else:
+        warning_label, other_level = other_info
+        if not os.path.isfile(os.path.join(CUSTOM_LEVELS_DIRECTORY, f'{other_level}.map')):
+            warning_label.show()
+            return
         levels = [os.path.join(CUSTOM_LEVELS_DIR_WITHOUT_LVL, other_level)]
-    player, portal, level_num = load_level_from_list(levels, level_num)
+        try:
+            player, portal, level_num = load_level_from_list(levels, level_num)
+            if portal is None or player is None:
+                raise AttributeError
+        except AttributeError:
+            warning_label.show()
+            return
     player_state = player.score
     running = True
     try:
@@ -1477,10 +1496,10 @@ def start_the_game(other_level=None):
             if keys[pygame.K_PAGEDOWN]:
                 world.key_dx = - WORLD_VEL
             surface.fill((0, 0, 0))
+            player.move()
             player.update()
             if player.attacking:
                 player.attack()
-            player.move()
             background.render()
             for ball in fireball_group:
                 ball.fire()
@@ -1659,7 +1678,8 @@ class CellBoard:
             except FileNotFoundError:
                 background = Background()
                 index = 0
-            self.board = [list(row) for row in data[index:]]
+            self.board = [list(str(row).ljust(len(max(data[index:], key=len)), ' '))
+                          for row in data[index:]]
         else:
             self.board = [[' ' for _ in range(l_width)] for _ in range(l_height)]
             background = Background()
