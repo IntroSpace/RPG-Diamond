@@ -62,6 +62,7 @@ DEFAULT_BG = 'lands.png'
 tutor_animation = None
 PARTICLES_BY_DIFFICULTY = [2, 3, 6, 9]
 PARTS_COUNT = 2
+GAME_LEVELS = ['level1', 'level2', 'level3']
 
 heart_files = ['death', 'onelife', 'halflife', 'almosthalflife', 'fulllife']
 stage_files = ['keyboard/arrows', 'keyboard/space', 'keyboard/enter',
@@ -123,6 +124,7 @@ TEXT_SHIFT = game_font.render(f'{word.get("your score")}: 0   ©',
                               True, TEXT_COLOR).get_width() // 1.4 + 15
 MANA_COLOR = pygame.Color(49, 105, 168)
 CUSTOM_LEVELS_DIRECTORY = os.path.join('levels/custom')
+CUSTOM_LEVELS_DIR_WITHOUT_LVL = os.path.join('custom')
 
 enemies = list()
 
@@ -1261,12 +1263,16 @@ def set_difficulty(value, difficulty):
         NON_COMFORT_ZONE = WIDTH * 0.75, HEIGHT * 0.8
 
 
-def load_level_data(filename):
+def load_level_data(filename, customs=False):
     global intro_count, prev_level_num
     replay = prev_level_num == level_num
     prev_level_num = level_num
     intro_count = 255
-    with open(f'levels/{filename}.map', mode='r', encoding='utf8') as f:
+    if customs:
+        full_filename = os.path.join(CUSTOM_LEVELS_DIRECTORY, f'{filename}.map')
+    else:
+        full_filename = os.path.join('levels', f'{filename}.map')
+    with open(full_filename, mode='r', encoding='utf8') as f:
         return Level.new_level(map(lambda i: i.replace('\n', ''), f.readlines()), replay=replay)
 
 
@@ -1392,7 +1398,25 @@ def end_the_game():
 
 
 world = level_num = player = portal = None
-levels = [os.path.join('custom', 'test_level'), 'level1', 'level2', 'level3']
+levels = GAME_LEVELS
+
+
+def choose_custom_level():
+    custom_levels = list()
+    for filename in os.listdir(CUSTOM_LEVELS_DIRECTORY):
+        if filename.endswith(".map"):
+            custom_levels.append((filename[:-4], len(custom_levels)))
+    submenu = pygame_menu.Menu(word.get("custom levels"), WIDTH, HEIGHT,
+                               theme=pygame_menu.themes.THEME_DARK)
+    lvl_select = submenu.add.dropselect(
+        title=word.get("select level"),
+        items=custom_levels,
+        default=0
+    )
+    submenu.select_widget(submenu.add.button(word.get("play"),
+                                             lambda: start_the_game(lvl_select.get_value()[0][0])))
+    submenu.add.button(word.get("back"), submenu.disable)
+    submenu.mainloop(surface)
 
 
 def play_menu():
@@ -1404,13 +1428,15 @@ def play_menu():
                           (word.get("med"), 2), (word.get("hard"), 3)],
                          onchange=set_difficulty)
     submenu.select_widget(submenu.add.button(word.get("play"), start_the_game))
+    submenu.add.button(word.get("play customs"), choose_custom_level)
     submenu.add.button(word.get("back"), submenu.disable)
     submenu.mainloop(surface)
 
 
-def start_the_game():
+def start_the_game(other_level=None):
     global world, level_num, player, portal, player_state, mana, completed_levels, background, \
-        heart, player_mana_state, max_values, enemies_killed, cur_enemies_killed, prev_level_num
+        heart, player_mana_state, max_values, enemies_killed, cur_enemies_killed, prev_level_num,\
+        levels
     world = World((WIDTH, HEIGHT - 100))
     prev_level_num = -1
     level_num = completed_levels = 0
@@ -1419,6 +1445,10 @@ def start_the_game():
     player_mana_state = mana.mana
     max_values = [0, 0]
     enemies_killed = cur_enemies_killed = 0
+    if other_level is None:
+        levels = GAME_LEVELS
+    else:
+        levels = [os.path.join(CUSTOM_LEVELS_DIR_WITHOUT_LVL, other_level)]
     player, portal, level_num = load_level_from_list(levels, level_num)
     player_state = player.score
     running = True
