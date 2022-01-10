@@ -1086,7 +1086,7 @@ class Bomby(Enemy):
                 for sprite in pygame.sprite.spritecollide(self, tiles_group, False):
                     if isinstance(sprite, Portal):
                         continue
-                    if -9 < sprite.rect.top - self.rect.bottom < 9:
+                    if -5 - self.vel.y < sprite.rect.top - self.rect.bottom < 9:
                         self.jumping = False
                         self.vel.y = self.acc.y = 0
                         self.rect.bottom = sprite.rect.top
