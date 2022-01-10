@@ -1,8 +1,11 @@
 import os
 import random
+import socket
 import sys
 import shutil
+from errno import EADDRINUSE
 from math import ceil
+from time import sleep
 
 import pygame
 import pygame_menu
@@ -115,6 +118,8 @@ CELL_COLOR = pygame.Color(245, 245, 245)
 CELL_CHOSEN_COLOR = pygame.Color(140, 185, 205)
 CELL_WIDTH = 1
 ITEM_CHOSEN_COLOR = pygame.Color(230, 235, 235)
+
+ACCEPTED_PORTS = range(10000, 11000)
 
 BG_COLOR = 45, 40, 40
 TEXT_COLOR = pygame.Color(115, 125, 125)
@@ -250,11 +255,6 @@ teleport_sprite = get_first_frame(load_image('green_portal.png'), 8, 3)
 spike_ball_sprite = get_first_frame(load_image('spike_ball.png'), 6, 1, pos=(2, 0))
 bat_sprite = get_first_frame(load_image('bat_sprite.png'), 5, 3, pos=(0, 1))
 coin_sprite = get_first_frame(load_image('coin_yellow.png'), 5, 1)
-# size_sprite = load_image('green_portal.png').get_width() // 8,\
-#               load_image('green_portal.png').get_height() // 3
-# teleport_sprite = pygame.transform.scale(load_image('green_portal.png')
-#                                          .subsurface(pygame.Rect((0, 0), size_sprite)),
-#                                          (tile_size, tile_size))
 
 life_states = [[] for i in range(len(heart_files))]
 for i, directory in enumerate(heart_files):
@@ -266,6 +266,62 @@ for i, directory in enumerate(heart_files):
 stages = [[pygame.Surface((0, 0))]]
 for name in stage_files:
     stages.append(cut_sheet(f'tutorial/{name}.png', 2, size=tile_size * 2))
+
+
+def server_send_file(level_name):
+    for port in ACCEPTED_PORTS:
+        try:
+            sock = socket.socket()
+            host = socket.gethostname()
+            sock.bind((host, port))
+            break
+        except socket.error as e:
+            if e.errno == EADDRINUSE:
+                continue
+            else:
+                print(e)
+    filename = 'levels/custom/' + level_name
+    with open(f'{filename}.map', 'r') as f:
+        background_name = f.readline().replace('\n', '')
+
+    sock.listen(1)
+    c, addr = sock.accept()
+    c.send(bytes(f'{username}.{filename}'.encode()))
+    sleep(1)
+    with open(f'{filename}.map', 'rb') as f:
+        c.sendfile(f)
+    sleep(1)
+    c.send('<eof>'.encode())
+    while c.recv(1024).decode() != 'success':
+        pass
+    c.send(bytes(background_name.encode()))
+    sleep(1)
+    with open(f'data/backgrounds/{background_name}', 'rb') as f:
+        c.sendfile(f)
+    c.close()
+
+
+def client_get_file(port):
+    s_get = socket.socket()
+    host = socket.gethostname()
+    s_get.connect((host, port))
+    intro_info = s_get.recv(1024).decode()
+    *server_player_name, filename = intro_info.split('.levels/custom/')
+    # player = ''.join(player)
+    filename = 'levels/custom/' + filename
+    with open(f'{filename}-client.map', 'wb') as f:
+        data = s_get.recv(1024)
+        while data.decode() != '<eof>':
+            f.write(data)
+            data = s_get.recv(1024)
+    s_get.send(b'success')
+    background_name = s_get.recv(1024).decode()
+    filename = 'data/backgrounds/client-' + background_name
+    with open(filename, 'wb') as f:
+        data = s_get.recv(1024)
+        while data:
+            f.write(data)
+            data = s_get.recv(1024)
 
 
 class World:
@@ -1428,6 +1484,16 @@ def choose_custom_level():
     submenu.mainloop(surface)
 
 
+def share_level_menu():
+    submenu = pygame_menu.Menu(word.get("share level"), WIDTH, HEIGHT,
+                               theme=pygame_menu.themes.THEME_DARK)
+
+    submenu.select_widget(submenu.add.button(word.get("send level"), lambda: ...))
+    submenu.add.button(word.get("get level"), lambda: ...)
+    submenu.add.button(word.get("back"), submenu.disable)
+    submenu.mainloop(surface)
+
+
 def play_menu():
     submenu = pygame_menu.Menu(word.get("play"), WIDTH, HEIGHT,
                                theme=pygame_menu.themes.THEME_DARK)
@@ -2152,6 +2218,7 @@ text_input = menu.add.text_input(f'{word.get("name")}: ', default=username, onch
 menu.add.button(word.get("play"), play_menu)
 menu.add.button(word.get("tutor"), start_tutorial)
 menu.add.button(word.get("level editor"), level_editor_menu)
+menu.add.button(word.get("share level"), share_level_menu)
 menu.add.button(word.get("settings"), settings_menu)
 menu.add.button(word.get("quit"), pygame_menu.events.EXIT)
 menu.mainloop(surface)
