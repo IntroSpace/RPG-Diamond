@@ -57,7 +57,12 @@ lang = {
         'warning custom lvl': "Этот уровень не работает",
         'share level': 'Поделиться уровнем',
         'send level': 'Отправить уровень человеку',
-        'get level': 'Получить уровень от человека'
+        'get level': 'Получить уровень от человека',
+        'warning port conn': 'В соединении отказано',
+        'warning port value': 'Порт должен быть от 0 до 65535',
+        'warning port not int': 'ПОрт должен быть целым числом',
+        'some error': 'Ошибка',
+        'input port': "Введите порт вашего друга"
     },
     'en': {
         'back': 'Back',
@@ -117,6 +122,11 @@ lang = {
         'warning custom lvl': "This level doesn't work",
         'share level': 'Share levels',
         'send level': 'Send level to person',
-        'get level': 'Get level from person'
+        'get level': 'Get level from person',
+        'warning port conn': 'Connection refused',
+        'warning port value': 'Port must be between 0 and 65535',
+        'warning port not int': 'Port must be integer',
+        'some error': 'Error',
+        'input port': "Enter your friend's port"
     }
 }

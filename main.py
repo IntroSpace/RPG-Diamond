@@ -268,7 +268,13 @@ for name in stage_files:
     stages.append(cut_sheet(f'tutorial/{name}.png', 2, size=tile_size * 2))
 
 
-def server_send_file(level_name):
+def server_send_file(warning, level_name):
+    filename = 'levels/custom/' + level_name
+    if not os.path.isfile(f'{filename}.map'):
+        warning.show()
+        return
+    with open(f'{filename}.map', 'r') as f:
+        background_name = f.readline().replace('\n', '')
     for port in ACCEPTED_PORTS:
         try:
             sock = socket.socket()
@@ -280,9 +286,6 @@ def server_send_file(level_name):
                 continue
             else:
                 print(e)
-    filename = 'levels/custom/' + level_name
-    with open(f'{filename}.map', 'r') as f:
-        background_name = f.readline().replace('\n', '')
 
     sock.listen(1)
     c, addr = sock.accept()
@@ -301,22 +304,41 @@ def server_send_file(level_name):
     c.close()
 
 
-def client_get_file(port):
+def client_get_file(warning, port):
+    if port.isnumeric():
+        port = int(port)
+    else:
+        warning.set_title(word.get('warning port not int'))
+        warning.show()
+        return
     s_get = socket.socket()
     host = socket.gethostname()
-    s_get.connect((host, port))
+    try:
+        s_get.connect((host, port))
+    except ConnectionRefusedError:
+        warning.set_title(word.get('warning port conn'))
+        warning.show()
+        return
+    except OverflowError:
+        warning.set_title(word.get('warning port value'))
+        warning.show()
+        return
+    except Exception:
+        warning.set_title(word.get('some error'))
+        warning.show()
+        return
     intro_info = s_get.recv(1024).decode()
     *server_player_name, filename = intro_info.split('.levels/custom/')
-    # player = ''.join(player)
+    server_player_name = ''.join(server_player_name)
     filename = 'levels/custom/' + filename
-    with open(f'{filename}-client.map', 'wb') as f:
+    with open(f'{filename}-{server_player_name}.map', 'wb') as f:
         data = s_get.recv(1024)
         while data.decode() != '<eof>':
             f.write(data)
             data = s_get.recv(1024)
     s_get.send(b'success')
     background_name = s_get.recv(1024).decode()
-    filename = 'data/backgrounds/client-' + background_name
+    filename = 'data/backgrounds/' + background_name
     with open(filename, 'wb') as f:
         data = s_get.recv(1024)
         while data:
@@ -1086,7 +1108,7 @@ class Bomby(Enemy):
                 for sprite in pygame.sprite.spritecollide(self, tiles_group, False):
                     if isinstance(sprite, Portal):
                         continue
-                    if -5 - self.vel.y < sprite.rect.top - self.rect.bottom < 9:
+                    if -5 - self.vel.y < sprite.rect.top - self.rect.bottom:
                         self.jumping = False
                         self.vel.y = self.acc.y = 0
                         self.rect.bottom = sprite.rect.top
@@ -1484,12 +1506,49 @@ def choose_custom_level():
     submenu.mainloop(surface)
 
 
+def send_level_menu():
+    custom_levels = list()
+    for filename in os.listdir(CUSTOM_LEVELS_DIRECTORY):
+        if filename.endswith(".map"):
+            custom_levels.append((filename[:-4], len(custom_levels)))
+
+    submenu = pygame_menu.Menu(word.get("send level"), WIDTH, HEIGHT,
+                               theme=pygame_menu.themes.THEME_DARK)
+    warning = submenu.add.label(word.get("warning custom lvl"), font_color=pygame.Color('#B33A3A'))
+    warning.hide()
+    lvl_select = submenu.add.dropselect(
+        title=word.get("select level"),
+        items=custom_levels,
+        default=0,
+        onchange=lambda *_: warning.hide()
+    )
+    submenu.select_widget(submenu.add.button(word.get("send level"),
+                                             lambda: server_send_file(warning,
+                                                                      lvl_select.get_value()[0][0])))
+    submenu.add.button(word.get("back"), submenu.disable)
+    submenu.mainloop(surface)
+
+
+def get_level_menu():
+    submenu = pygame_menu.Menu(word.get("get level"), WIDTH, HEIGHT,
+                               theme=pygame_menu.themes.THEME_DARK)
+    warning = submenu.add.label(word.get("warning port conn"), font_color=pygame.Color('#B33A3A'))
+    warning.hide()
+    port_input = submenu.add.text_input(f'{word.get("input port")}: ',
+                                        default='10000', onchange=lambda *_: warning.hide())
+    submenu.select_widget(submenu.add.button(word.get("get level"),
+                                             lambda: client_get_file(warning,
+                                                                     port_input.get_value())))
+    submenu.add.button(word.get("back"), submenu.disable)
+    submenu.mainloop(surface)
+
+
 def share_level_menu():
     submenu = pygame_menu.Menu(word.get("share level"), WIDTH, HEIGHT,
                                theme=pygame_menu.themes.THEME_DARK)
 
-    submenu.select_widget(submenu.add.button(word.get("send level"), lambda: ...))
-    submenu.add.button(word.get("get level"), lambda: ...)
+    submenu.select_widget(submenu.add.button(word.get("send level"), send_level_menu))
+    submenu.add.button(word.get("get level"), get_level_menu)
     submenu.add.button(word.get("back"), submenu.disable)
     submenu.mainloop(surface)
 
