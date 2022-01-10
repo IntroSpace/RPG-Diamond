@@ -54,7 +54,10 @@ lang = {
         'play customs': 'Играть в свои уровни',
         'select level': 'Выберите уровень: ',
         'custom levels': 'Ваши уровни',
-        'warning custom lvl': "Этот уровень не работает"
+        'warning custom lvl': "Этот уровень не работает",
+        'share level': 'Поделиться уровнем',
+        'send level': 'Отправить уровень человеку',
+        'get level': 'Получить уровень от человека'
     },
     'en': {
         'back': 'Back',
@@ -111,6 +114,9 @@ lang = {
         'play customs': 'Play custom levels',
         'select level': 'Select level: ',
         'custom levels': 'Your levels',
-        'warning custom lvl': "This level doesn't work"
+        'warning custom lvl': "This level doesn't work",
+        'share level': 'Share levels',
+        'send level': 'Send level to person',
+        'get level': 'Get level from person'
     }
 }
