@@ -432,9 +432,9 @@ class Portal(Tile):
         x, y = pos
         self.row, self.col = size
         self.frames = []
-        delta = int(tile_size * 0.65)
-        self.rect = pygame.Rect(x * tile_size - delta * 2, y * tile_size - delta * 2, tile_size + delta * 2,
-                                tile_size + delta * 2)
+        delta = int(tile_size * 0.05)
+        self.rect = pygame.Rect(x * tile_size - delta, y * tile_size - delta * 2, tile_size + delta,
+                                tile_size + delta)
         self.mask = None
         self.cut_sheet(sheet)
         self.frame = None
