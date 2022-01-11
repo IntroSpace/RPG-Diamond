@@ -277,8 +277,9 @@ def server_send_file(warning, level_name):
         background_name = f.readline().replace('\n', '')
     for port in ACCEPTED_PORTS:
         try:
-            sock = socket.socket()
-            host = socket.gethostname()
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            host = socket.gethostbyname(socket.gethostname())
+            print(host, port)
             sock.bind((host, port))
             break
         except socket.error as e:
@@ -287,8 +288,9 @@ def server_send_file(warning, level_name):
             else:
                 print(e)
 
-    sock.listen(1)
+    sock.listen(5)
     c, addr = sock.accept()
+    print(c, addr)
     c.send(bytes(f'{username}.{filename}'.encode()))
     sleep(1)
     with open(f'{filename}.map', 'rb') as f:
@@ -304,19 +306,18 @@ def server_send_file(warning, level_name):
     c.close()
 
 
-def client_get_file(warning, port):
+def client_get_file(warning, host, port):
     if port.isnumeric():
         port = int(port)
     else:
         warning.set_title(word.get('warning port not int'))
         warning.show()
         return
-    s_get = socket.socket()
-    host = socket.gethostname()
+    s_get = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         s_get.connect((host, port))
     except ConnectionRefusedError:
-        warning.set_title(word.get('warning port conn'))
+        warning.set_title(word.get('warning conn'))
         warning.show()
         return
     except OverflowError:
@@ -397,17 +398,6 @@ class Background(pygame.sprite.Sprite):
 
     def render(self):
         surface.blit(self.image, self.rect.topleft)
-
-
-class Ground(pygame.sprite.Sprite):
-    def __init__(self):
-        super().__init__(all_sprites)
-        self.image = pygame.transform.scale(load_image("ground.png"), (1920, 300))
-        self.rect = self.image.get_rect()
-        self.rect.y = 780
-
-    def render(self):
-        surface.blit(self.image, (self.rect.x, self.rect.y))
 
 
 class Tile(pygame.sprite.Sprite):
@@ -1534,10 +1524,13 @@ def get_level_menu():
                                theme=pygame_menu.themes.THEME_DARK)
     warning = submenu.add.label(word.get("warning port conn"), font_color=pygame.Color('#B33A3A'))
     warning.hide()
+    ip_input = submenu.add.text_input(f'{word.get("input ip")}: ',
+                                      default='192.168.0.1', onchange=lambda *_: warning.hide())
     port_input = submenu.add.text_input(f'{word.get("input port")}: ',
                                         default='10000', onchange=lambda *_: warning.hide())
     submenu.select_widget(submenu.add.button(word.get("get level"),
                                              lambda: client_get_file(warning,
+                                                                     ip_input.get_value(),
                                                                      port_input.get_value())))
     submenu.add.button(word.get("back"), submenu.disable)
     submenu.mainloop(surface)
