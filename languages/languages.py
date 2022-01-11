@@ -60,10 +60,10 @@ lang = {
         'get level': 'Получить уровень от человека',
         'warning conn': 'В соединении отказано',
         'warning port value': 'Порт должен быть от 0 до 65535',
-        'warning port not int': 'ПОрт должен быть целым числом',
+        'warning port not int': 'Порт должен быть целым числом',
         'some error': 'Ошибка',
         'input port': "Введите порт вашего друга",
-        'input ip': "Enter your friend's ip"
+        'input ip': "Введите IP вашего друга"
     },
     'en': {
         'back': 'Back',
@@ -129,6 +129,6 @@ lang = {
         'warning port not int': 'Port must be integer',
         'some error': 'Error',
         'input port': "Enter your friend's port",
-        'input ip': "Enter your friend's ip"
+        'input ip': "Enter your friend's IP"
     }
 }
