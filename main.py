@@ -1,3 +1,4 @@
+import asyncio
 import os
 import random
 import socket
@@ -7,6 +8,7 @@ from errno import EADDRINUSE
 from math import ceil
 from time import sleep
 
+import aiofiles as aiofiles
 import pygame
 import pygame_menu
 from languages.languages import lang
@@ -34,7 +36,7 @@ new_sound = vol_sound
 pygame.init()
 WIDTH, HEIGHT = pygame.display.Info().current_w, pygame.display.Info().current_h
 # WIDTH, HEIGHT = 1504, 846
-# WIDTH, HEIGHT = 1008, 567
+WIDTH, HEIGHT = 1008, 567
 tile_size = HEIGHT // 20
 surface = pygame.display.set_mode((WIDTH, HEIGHT))
 ACC = 0.4 * tile_size / 54
@@ -287,21 +289,27 @@ def server_send_file(warning, level_name):
                 continue
             else:
                 print(e)
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(
+        asyncio.gather(server_accepting_client(loop, sock, filename, background_name))
+    )
 
+
+async def server_accepting_client(loop, sock, filename, background_name):
     sock.listen(5)
     c, addr = sock.accept()
     print(c, addr)
     c.send(bytes(f'{username}.{filename}'.encode()))
-    sleep(1)
+    await asyncio.sleep(1)
     with open(f'{filename}.map', 'rb') as f:
         c.sendfile(f)
-    sleep(1)
+    await asyncio.sleep(1)
     c.send('<eof>'.encode())
     while c.recv(1024).decode() != 'success':
         pass
     c.send(bytes(background_name.encode()))
-    sleep(1)
-    with open(f'data/backgrounds/{background_name}', 'rb') as f:
+    await asyncio.sleep(2)
+    with open(f'data/backgrounds/{background_name}', mode='rb') as f:
         c.sendfile(f)
     c.close()
 
@@ -340,11 +348,13 @@ def client_get_file(warning, host, port):
     s_get.send(b'success')
     background_name = s_get.recv(1024).decode()
     filename = 'data/backgrounds/' + background_name
-    with open(filename, 'wb') as f:
+    data_to_write = bytes()
+    data = s_get.recv(1024)
+    while data:
+        data_to_write = data_to_write + data
         data = s_get.recv(1024)
-        while data:
-            f.write(data)
-            data = s_get.recv(1024)
+    with open(filename, 'wb') as f:
+        f.write(data_to_write)
 
 
 class World:
