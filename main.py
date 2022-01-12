@@ -33,11 +33,13 @@ new_music = vol_music
 new_sound = vol_sound
 
 pygame.init()
+pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN, pygame.DROPFILE,
+                          pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP])
 WIDTH, HEIGHT = pygame.display.Info().current_w, pygame.display.Info().current_h
 # WIDTH, HEIGHT = 1504, 846
 # WIDTH, HEIGHT = 1008, 567
 tile_size = HEIGHT // 20
-surface = pygame.display.set_mode((WIDTH, HEIGHT), pygame.DOUBLEBUF)
+surface = pygame.display.set_mode((WIDTH, HEIGHT), pygame.FULLSCREEN | pygame.DOUBLEBUF, 16)
 surface.set_alpha(None)
 ACC = 0.4 * tile_size / 54
 FRIC = - (0.09 + 0.01 * tile_size / 54)
@@ -163,6 +165,11 @@ def load_image(name, colorkey=None, size=None):
         con.close()
         sys.exit()
     image = pygame.image.load(fullname)
+    if size is not None:
+        size -= 1
+        delta = size / 54
+        image = pygame.transform.scale(image, (int(image.get_width() * delta),
+                                               int(image.get_height() * delta)))
     if colorkey is not None:
         image = image.convert()
         if colorkey == -1:
@@ -170,11 +177,6 @@ def load_image(name, colorkey=None, size=None):
         image.set_colorkey(colorkey)
     else:
         image = image.convert_alpha()
-    if size is not None:
-        size -= 1
-        delta = size / 54
-        image = pygame.transform.scale(image, (int(image.get_width() * delta),
-                                               int(image.get_height() * delta)))
     return image
 
 
@@ -428,7 +430,7 @@ class Background(pygame.sprite.Sprite):
         filename = os.path.join('backgrounds', name)
         if not os.path.isfile(os.path.join('data', filename)):
             raise FileNotFoundError
-        self.image = pygame.transform.scale(load_image(filename), (WIDTH, HEIGHT))
+        self.image = pygame.transform.scale(load_image(filename), (WIDTH, HEIGHT)).convert()
         self.rect = self.image.get_rect(topleft=(0, 0))
 
     def render(self):
@@ -441,7 +443,7 @@ class Tile(pygame.sprite.Sprite):
             super(Tile, self).__init__(all_sprites, tiles_group, other_group)
         else:
             super(Tile, self).__init__(all_sprites, tiles_group, *groups)
-            self.image = pygame.transform.scale(load_image(name), (tile_size, tile_size))
+            self.image = pygame.transform.scale(load_image(name), (tile_size, tile_size)).convert()
             self.rect = self.image.get_rect(topleft=(pos[0] * tile_size, pos[1] * tile_size))
             self.mask = pygame.mask.from_surface(self.image)
 
@@ -483,7 +485,7 @@ class Portal(Tile):
             for i in range(self.col):
                 frame_location = (size_sprite[0] * i, size_sprite[1] * j)
                 self.frames.append(pygame.transform.scale(sheet.subsurface(pygame.Rect(
-                    frame_location, size_sprite)), self.rect.size))
+                    frame_location, size_sprite)), self.rect.size).convert_alpha())
 
     def open(self):
         self.frame = 1, 0
@@ -501,7 +503,8 @@ class Portal(Tile):
     def update(self, *args, **kwargs) -> None:
         if not 0 < self.rect.centerx < WIDTH:
             return
-        if self.frame is None and self.rect.width / 2 < self.rect.centerx < WIDTH - self.rect.width / 2:
+        if self.frame is None \
+                and self.rect.width / 2 < self.rect.centerx < WIDTH - self.rect.width / 2:
             self.counter = -10
             self.open()
         elif self.frame:
