@@ -63,7 +63,10 @@ lang = {
         'warning port not int': 'Порт должен быть целым числом',
         'some error': 'Ошибка',
         'input port': "Введите порт вашего друга",
-        'input ip': "Введите IP вашего друга"
+        'input ip': "Введите IP вашего друга",
+        'show port': 'Порт: ',
+        'show ip': 'IP: ',
+        'tell friend': 'Скажите эти данные своему другу'
     },
     'en': {
         'back': 'Back',
@@ -129,6 +132,9 @@ lang = {
         'warning port not int': 'Port must be integer',
         'some error': 'Error',
         'input port': "Enter your friend's port",
-        'input ip': "Enter your friend's IP"
+        'input ip': "Enter your friend's IP",
+        'show port': 'Port: ',
+        'show ip': 'IP: ',
+        'tell friend': 'Tell this information to your friend'
     }
 }

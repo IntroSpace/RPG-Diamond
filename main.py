@@ -36,7 +36,7 @@ new_sound = vol_sound
 pygame.init()
 WIDTH, HEIGHT = pygame.display.Info().current_w, pygame.display.Info().current_h
 # WIDTH, HEIGHT = 1504, 846
-# WIDTH, HEIGHT = 1008, 567
+WIDTH, HEIGHT = 1008, 567
 tile_size = HEIGHT // 20
 surface = pygame.display.set_mode((WIDTH, HEIGHT))
 ACC = 0.4 * tile_size / 54
@@ -270,7 +270,7 @@ for name in stage_files:
     stages.append(cut_sheet(f'tutorial/{name}.png', 2, size=tile_size * 2))
 
 
-def server_send_file(submenu, warning, level_name):
+def server_send_file(warning, level_name):
     filename = 'levels/custom/' + level_name
     if not os.path.isfile(f'{filename}.map'):
         warning.show()
@@ -281,7 +281,6 @@ def server_send_file(submenu, warning, level_name):
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             host = socket.gethostbyname(socket.gethostname())
-            print(host, port)
             sock.bind((host, port))
             break
         except socket.error as e:
@@ -290,12 +289,26 @@ def server_send_file(submenu, warning, level_name):
             else:
                 print(e)
 
+    def disable():
+        threads = threading.enumerate()
+        need_thread = threads[list(map(lambda i: i.getName(), threads)).index('serv_acc')]
+        submenu.disable()
+        need_thread.running = False
+        sock.close()
+
+    submenu = pygame_menu.Menu(word.get("get level"), WIDTH, HEIGHT,
+                               theme=pygame_menu.themes.THEME_DARK)
+    submenu.add.label(f'{word.get("tell friend")}')
+    submenu.add.label(f'{word.get("show ip")}{host}')
+    submenu.add.label(f'{word.get("show port")}{port}')
+    submenu.add.button(word.get('back'), disable)
     serv_acc = threading.Thread(name='serv_acc', target=server_accepting_client,
-                                args=(sock, filename, background_name))
+                                args=(submenu.disable, sock, filename, background_name))
     serv_acc.start()
+    submenu.mainloop(surface)
 
 
-def server_accepting_client(sock, filename, background_name):
+def server_accepting_client(disable, sock, filename, background_name):
     sock.listen(5)
     c, addr = sock.accept()
     print(c, addr)
@@ -312,6 +325,7 @@ def server_accepting_client(sock, filename, background_name):
     with open(f'data/backgrounds/{background_name}', mode='rb') as f:
         c.sendfile(f)
     c.close()
+    disable()
 
 
 def client_get_file(warning, host, port):
@@ -336,6 +350,12 @@ def client_get_file(warning, host, port):
         warning.set_title(word.get('some error'))
         warning.show()
         return
+
+    client_main = threading.Thread(name='client_main', target=client_main_work, args=(s_get,))
+    client_main.start()
+
+
+def client_main_work(s_get):
     intro_info = s_get.recv(1024).decode()
     *server_player_name, filename = intro_info.split('.levels/custom/')
     server_player_name = ''.join(server_player_name)
@@ -1063,7 +1083,7 @@ class Bomby(Enemy):
                     continue
                 rect = sprite.rect
                 m_x, m_y = self.rect.midright
-                if rect.collidepoint((m_x, m_y))\
+                if rect.collidepoint((m_x, m_y)) \
                         and not rect.collidepoint((m_x - 2, m_y)):
                     block_right = 1
                     self.direction = -1
@@ -1076,7 +1096,7 @@ class Bomby(Enemy):
                     continue
                 rect = sprite.rect
                 m_x, m_y = self.rect.midleft
-                if rect.collidepoint((m_x, m_y))\
+                if rect.collidepoint((m_x, m_y)) \
                         and not rect.collidepoint((m_x + 2, m_y)):
                     block_left = 1
                     self.direction = 1
@@ -1497,11 +1517,12 @@ def choose_custom_level():
         title=word.get("select level"),
         items=custom_levels,
         default=0,
-        onchange=lambda *_: warning.hide()
+        onchange=lambda *_: warning.hide(),
+        placeholder_add_to_selection_box=False
     )
     submenu.select_widget(submenu.add.button(word.get("play"),
                                              lambda: start_the_game((warning,
-                                                                    lvl_select.get_value()[0][0]))))
+                                                                     lvl_select.get_value()[0][0]))))
     submenu.add.button(word.get("back"), submenu.disable)
     submenu.mainloop(surface)
 
@@ -1520,10 +1541,11 @@ def send_level_menu():
         title=word.get("select level"),
         items=custom_levels,
         default=0,
-        onchange=lambda *_: warning.hide()
+        onchange=lambda *_: warning.hide(),
+        placeholder_add_to_selection_box=False
     )
     submenu.select_widget(submenu.add.button(word.get("send level"),
-                                             lambda: server_send_file(submenu, warning,
+                                             lambda: server_send_file(warning,
                                                                       lvl_select.get_value()[0][0])))
     submenu.add.button(word.get("back"), submenu.disable)
     submenu.mainloop(surface)
@@ -1572,7 +1594,7 @@ def play_menu():
 
 def start_the_game(other_info=None):
     global world, level_num, player, portal, player_state, mana, completed_levels, background, \
-        heart, player_mana_state, max_values, enemies_killed, cur_enemies_killed, prev_level_num,\
+        heart, player_mana_state, max_values, enemies_killed, cur_enemies_killed, prev_level_num, \
         levels
     world = World((WIDTH, HEIGHT - 100))
     prev_level_num = -1
@@ -1884,8 +1906,8 @@ class CellBoard:
         mods = pygame.key.get_mods()
         for y, row in enumerate(self.board):
             for x, cell in enumerate(row):
-                if (x_start := x * self.size + self.dx) + self.size < 0\
-                        or (y_start := y * self.size + self.dy) + self.size < 0\
+                if (x_start := x * self.size + self.dx) + self.size < 0 \
+                        or (y_start := y * self.size + self.dy) + self.size < 0 \
                         or x_start > WIDTH or y_start > HEIGHT:
                     continue
                 self.draw_item(x, y, cell)
@@ -1929,7 +1951,7 @@ class CellBoard:
     def inventory_render(self):
         self.inventory_surf.fill((35, 35, 35))
         pos = pygame.mouse.get_pos()
-        if self.inventory_surf.get_rect().collidepoint(pos) and self.prev_x == self.prev_y == -1\
+        if self.inventory_surf.get_rect().collidepoint(pos) and self.prev_x == self.prev_y == -1 \
                 and self.rect_draw == (-1, -1):
             if self.counter < 236:
                 self.counter += 4
