@@ -4,11 +4,11 @@ import random
 import socket
 import sys
 import shutil
+import threading
 from errno import EADDRINUSE
 from math import ceil
 from time import sleep
 
-import aiofiles as aiofiles
 import pygame
 import pygame_menu
 from languages.languages import lang
@@ -36,7 +36,7 @@ new_sound = vol_sound
 pygame.init()
 WIDTH, HEIGHT = pygame.display.Info().current_w, pygame.display.Info().current_h
 # WIDTH, HEIGHT = 1504, 846
-WIDTH, HEIGHT = 1008, 567
+# WIDTH, HEIGHT = 1008, 567
 tile_size = HEIGHT // 20
 surface = pygame.display.set_mode((WIDTH, HEIGHT))
 ACC = 0.4 * tile_size / 54
@@ -270,7 +270,7 @@ for name in stage_files:
     stages.append(cut_sheet(f'tutorial/{name}.png', 2, size=tile_size * 2))
 
 
-def server_send_file(warning, level_name):
+def server_send_file(submenu, warning, level_name):
     filename = 'levels/custom/' + level_name
     if not os.path.isfile(f'{filename}.map'):
         warning.show()
@@ -289,26 +289,26 @@ def server_send_file(warning, level_name):
                 continue
             else:
                 print(e)
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(
-        asyncio.gather(server_accepting_client(loop, sock, filename, background_name))
-    )
+
+    serv_acc = threading.Thread(name='serv_acc', target=server_accepting_client,
+                                args=(sock, filename, background_name))
+    serv_acc.start()
 
 
-async def server_accepting_client(loop, sock, filename, background_name):
+def server_accepting_client(sock, filename, background_name):
     sock.listen(5)
     c, addr = sock.accept()
     print(c, addr)
     c.send(bytes(f'{username}.{filename}'.encode()))
-    await asyncio.sleep(1)
+    sleep(1)
     with open(f'{filename}.map', 'rb') as f:
         c.sendfile(f)
-    await asyncio.sleep(1)
+    sleep(1)
     c.send('<eof>'.encode())
     while c.recv(1024).decode() != 'success':
         pass
     c.send(bytes(background_name.encode()))
-    await asyncio.sleep(2)
+    sleep(2)
     with open(f'data/backgrounds/{background_name}', mode='rb') as f:
         c.sendfile(f)
     c.close()
@@ -1523,7 +1523,7 @@ def send_level_menu():
         onchange=lambda *_: warning.hide()
     )
     submenu.select_widget(submenu.add.button(word.get("send level"),
-                                             lambda: server_send_file(warning,
+                                             lambda: server_send_file(submenu, warning,
                                                                       lvl_select.get_value()[0][0])))
     submenu.add.button(word.get("back"), submenu.disable)
     submenu.mainloop(surface)
@@ -1535,7 +1535,7 @@ def get_level_menu():
     warning = submenu.add.label(word.get("warning port conn"), font_color=pygame.Color('#B33A3A'))
     warning.hide()
     ip_input = submenu.add.text_input(f'{word.get("input ip")}: ',
-                                      default='192.168.0.1', onchange=lambda *_: warning.hide())
+                                      default='127.0.1.1', onchange=lambda *_: warning.hide())
     port_input = submenu.add.text_input(f'{word.get("input port")}: ',
                                         default='10000', onchange=lambda *_: warning.hide())
     submenu.select_widget(submenu.add.button(word.get("get level"),
