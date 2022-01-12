@@ -73,7 +73,7 @@ GAME_LEVELS = ['level1', 'level2', 'level3']
 
 heart_files = ['death', 'onelife', 'halflife', 'almosthalflife', 'fulllife']
 stage_files = ['keyboard/arrows', 'keyboard/space', 'keyboard/enter',
-               'mouse/left', 'mouse/right', 'keyboard/esc']
+               'mouse/left', 'mouse/right', 'keyboard/fireball_attack', 'keyboard/esc']
 
 all_sounds = list()
 
@@ -681,9 +681,10 @@ class Player(pygame.sprite.Sprite):
     def update(self):
         if len(fireball_group.sprites()) == 0:
             self.magic_cooldown = 1
-        if pygame.key.get_pressed()[pygame.K_SPACE]:
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_SPACE]:
             self.jump()
-        if pygame.key.get_pressed()[pygame.K_RETURN] and not self.attacking:
+        if (keys[pygame.K_RETURN] or keys[pygame.K_z]) and not self.attacking:
             self.attacking = True
             self.attack()
         if self.move_frame > 10:
@@ -720,7 +721,8 @@ class Player(pygame.sprite.Sprite):
             knife_attack_sound.play()
         if self.attack_frame > 9:
             self.attack_frame = -1
-            if not pygame.key.get_pressed()[pygame.K_RETURN]:
+            if not pygame.key.get_pressed()[pygame.K_RETURN]\
+                    and not pygame.key.get_pressed()[pygame.K_z]:
                 self.attacking = False
         if self.direction == "RIGHT":
             if self.attack_frame < 0:
@@ -1671,6 +1673,11 @@ def start_the_game(other_info=None):
                             outro_play(replay=True)
                         else:
                             outro_play(end_of_game=True)
+                    if event.key == pygame.K_x:
+                        if mana.mana >= 6 and player.magic_cooldown:
+                            mana.mana -= 6
+                            player.attacking = True
+                            FireBall()
             keys = pygame.key.get_pressed()
             if keys[pygame.K_DELETE]:
                 world.key_dx = WORLD_VEL
@@ -1745,6 +1752,12 @@ def start_tutorial():
                             mana.mana = 6
                             player.attacking = True
                             FireBall()
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_x:
+                        if mana.mana >= 6 and player.magic_cooldown:
+                            mana.mana = 6
+                            player.attacking = True
+                            FireBall()
             keys = pygame.key.get_pressed()
             surface.fill((0, 0, 0))
             player.update()
@@ -1764,10 +1777,10 @@ def start_tutorial():
                     sprite.rect = sprite.rect.move(world.dx, world.dy)
             other_group.draw(surface)
             surface.blit(player.image, player.rect)
-            if stage == 6 and counter > 500:
+            if stage == 7 and counter > 500:
                 counter = 500
             elif counter == 850:
-                if stage != 6:
+                if stage != 7:
                     stage += 1
                 counter = 0
             counter += 1
@@ -1797,11 +1810,14 @@ def start_tutorial():
             elif stage == 5:
                 text = special_font.render(word.get('stage5'),
                                            True, STAGES_COLOR)
-            elif stage == 6 and counter > 450:
-                text = special_font.render(word.get('stage6.1'),
+            elif stage == 6:
+                text = special_font.render(word.get('stage6'),
+                                           True, STAGES_COLOR)
+            elif stage == 7 and counter > 450:
+                text = special_font.render(word.get('stage7.1'),
                                            True, STAGES_COLOR)
             else:
-                text = special_font.render(word.get('stage6'),
+                text = special_font.render(word.get('stage7'),
                                            True, STAGES_COLOR)
             if text:
                 text_x = tile_size * 2
