@@ -66,7 +66,8 @@ lang = {
         'input ip': "Введите IP вашего друга",
         'show port': 'Порт: ',
         'show ip': 'IP: ',
-        'tell friend': 'Скажите эти данные своему другу'
+        'tell friend': 'Скажите эти данные своему другу',
+        'friend got lvl': 'Этот уровень был доставлен вашему другу '
     },
     'en': {
         'back': 'Back',
@@ -135,6 +136,7 @@ lang = {
         'input ip': "Enter your friend's IP",
         'show port': 'Port: ',
         'show ip': 'IP: ',
-        'tell friend': 'Tell this information to your friend'
+        'tell friend': 'Tell this information to your friend',
+        'friend got lvl': 'This level was delivered to your friend '
     }
 }

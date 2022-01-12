@@ -1,4 +1,3 @@
-import asyncio
 import os
 import random
 import socket
@@ -36,9 +35,10 @@ new_sound = vol_sound
 pygame.init()
 WIDTH, HEIGHT = pygame.display.Info().current_w, pygame.display.Info().current_h
 # WIDTH, HEIGHT = 1504, 846
-WIDTH, HEIGHT = 1008, 567
+# WIDTH, HEIGHT = 1008, 567
 tile_size = HEIGHT // 20
-surface = pygame.display.set_mode((WIDTH, HEIGHT))
+surface = pygame.display.set_mode((WIDTH, HEIGHT), pygame.DOUBLEBUF)
+surface.set_alpha(None)
 ACC = 0.4 * tile_size / 54
 FRIC = - (0.09 + 0.01 * tile_size / 54)
 COUNT = 0
@@ -294,21 +294,23 @@ def server_send_file(warning, level_name):
         need_thread = threads[list(map(lambda i: i.getName(), threads)).index('serv_acc')]
         submenu.disable()
         need_thread.running = False
+        socket.socket()
         sock.close()
 
     submenu = pygame_menu.Menu(word.get("get level"), WIDTH, HEIGHT,
                                theme=pygame_menu.themes.THEME_DARK)
+    label = submenu.add.label('', font_color=pygame.Color('#6666ff'))
     submenu.add.label(f'{word.get("tell friend")}')
     submenu.add.label(f'{word.get("show ip")}{host}')
     submenu.add.label(f'{word.get("show port")}{port}')
     submenu.add.button(word.get('back'), disable)
     serv_acc = threading.Thread(name='serv_acc', target=server_accepting_client,
-                                args=(submenu.disable, sock, filename, background_name))
+                                args=(submenu.disable, label, sock, filename, background_name))
     serv_acc.start()
     submenu.mainloop(surface)
 
 
-def server_accepting_client(disable, sock, filename, background_name):
+def server_accepting_client(disable, label, sock, filename, background_name):
     sock.listen(5)
     c, addr = sock.accept()
     print(c, addr)
@@ -318,14 +320,15 @@ def server_accepting_client(disable, sock, filename, background_name):
         c.sendfile(f)
     sleep(1)
     c.send('<eof>'.encode())
-    while c.recv(1024).decode() != 'success':
+    while not (name_of_friend := c.recv(1024).decode()):
         pass
+    label.set_title(f'{word.get("friend got lvl")}"{name_of_friend}"')
+    sleep(1)
     c.send(bytes(background_name.encode()))
     sleep(2)
     with open(f'data/backgrounds/{background_name}', mode='rb') as f:
         c.sendfile(f)
     c.close()
-    disable()
 
 
 def client_get_file(warning, host, port):
@@ -365,8 +368,10 @@ def client_main_work(s_get):
         while data.decode() != '<eof>':
             f.write(data)
             data = s_get.recv(1024)
-    s_get.send(b'success')
-    background_name = s_get.recv(1024).decode()
+    sleep(1)
+    s_get.send(bytes(username.encode()))
+    while not (background_name := s_get.recv(1024).decode()):
+        pass
     filename = 'data/backgrounds/' + background_name
     data_to_write = bytes()
     data = s_get.recv(1024)
@@ -1556,8 +1561,9 @@ def get_level_menu():
                                theme=pygame_menu.themes.THEME_DARK)
     warning = submenu.add.label(word.get("warning port conn"), font_color=pygame.Color('#B33A3A'))
     warning.hide()
+    default_ip = socket.gethostbyname(socket.gethostname())
     ip_input = submenu.add.text_input(f'{word.get("input ip")}: ',
-                                      default='127.0.1.1', onchange=lambda *_: warning.hide())
+                                      default=default_ip, onchange=lambda *_: warning.hide())
     port_input = submenu.add.text_input(f'{word.get("input port")}: ',
                                         default='10000', onchange=lambda *_: warning.hide())
     submenu.select_widget(submenu.add.button(word.get("get level"),
