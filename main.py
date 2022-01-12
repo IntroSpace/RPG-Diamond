@@ -37,9 +37,9 @@ pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN, pygame.DROPFILE,
                           pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP])
 WIDTH, HEIGHT = pygame.display.Info().current_w, pygame.display.Info().current_h
 # WIDTH, HEIGHT = 1504, 846
-# WIDTH, HEIGHT = 1008, 567
+WIDTH, HEIGHT = 1008, 567
 tile_size = HEIGHT // 20
-surface = pygame.display.set_mode((WIDTH, HEIGHT), pygame.FULLSCREEN | pygame.DOUBLEBUF, 16)
+surface = pygame.display.set_mode((WIDTH, HEIGHT), pygame.DOUBLEBUF, 16)
 surface.set_alpha(None)
 ACC = 0.4 * tile_size / 54
 FRIC = - (0.09 + 0.01 * tile_size / 54)
@@ -292,12 +292,18 @@ def server_send_file(warning, level_name):
                 print(e)
 
     def disable():
-        threads = threading.enumerate()
-        need_thread = threads[list(map(lambda i: i.getName(), threads)).index('serv_acc')]
-        submenu.disable()
-        need_thread.running = False
-        socket.socket()
+        try:
+            socket.socket(socket.AF_INET, socket.SOCK_STREAM).connect((host, port))
+        except Exception:
+            pass
         sock.close()
+        try:
+            threads = threading.enumerate()
+            need_thread = threads[list(map(lambda i: i.getName(), threads)).index('serv_acc')]
+            need_thread.running = False
+        except ValueError:
+            pass
+        submenu.disable()
 
     submenu = pygame_menu.Menu(word.get("get level"), WIDTH, HEIGHT,
                                theme=pygame_menu.themes.THEME_DARK)
@@ -307,30 +313,32 @@ def server_send_file(warning, level_name):
     submenu.add.label(f'{word.get("show port")}{port}')
     submenu.add.button(word.get('back'), disable)
     serv_acc = threading.Thread(name='serv_acc', target=server_accepting_client,
-                                args=(submenu.disable, label, sock, filename, background_name))
+                                args=(label, sock, filename, background_name))
     serv_acc.start()
     submenu.mainloop(surface)
 
 
-def server_accepting_client(disable, label, sock, filename, background_name):
+def server_accepting_client(label, sock, filename, background_name):
     sock.listen(5)
     c, addr = sock.accept()
-    print(c, addr)
-    c.send(bytes(f'{username}.{filename}'.encode()))
-    sleep(1)
-    with open(f'{filename}.map', 'rb') as f:
-        c.sendfile(f)
-    sleep(1)
-    c.send('<eof>'.encode())
-    while not (name_of_friend := c.recv(1024).decode()):
+    try:
+        c.send(bytes(f'{username}.{filename}'.encode()))
+        sleep(1)
+        with open(f'{filename}.map', 'rb') as f:
+            c.sendfile(f)
+        sleep(1)
+        c.send('<eof>'.encode())
+        while not (name_of_friend := c.recv(1024).decode()):
+            pass
+        label.set_title(f'{word.get("friend got lvl")}"{name_of_friend}"')
+        sleep(1)
+        c.send(bytes(background_name.encode()))
+        sleep(2)
+        with open(f'data/backgrounds/{background_name}', mode='rb') as f:
+            c.sendfile(f)
+        c.close()
+    except BrokenPipeError:
         pass
-    label.set_title(f'{word.get("friend got lvl")}"{name_of_friend}"')
-    sleep(1)
-    c.send(bytes(background_name.encode()))
-    sleep(2)
-    with open(f'data/backgrounds/{background_name}', mode='rb') as f:
-        c.sendfile(f)
-    c.close()
 
 
 def client_get_file(warning, host, port):
