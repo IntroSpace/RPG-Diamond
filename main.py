@@ -37,7 +37,7 @@ pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN, pygame.DROPFILE,
                           pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP])
 WIDTH, HEIGHT = pygame.display.Info().current_w, pygame.display.Info().current_h
 # WIDTH, HEIGHT = 1504, 846
-WIDTH, HEIGHT = 1008, 567
+# WIDTH, HEIGHT = 1008, 567
 tile_size = HEIGHT // 20
 surface = pygame.display.set_mode((WIDTH, HEIGHT), pygame.DOUBLEBUF, 16)
 surface.set_alpha(None)
@@ -1417,6 +1417,11 @@ def outro_play(replay=False, end_of_game=False):
         mana, player_mana_state, enemies_killed, cur_enemies_killed
     outro_count = 0
     while outro_count < 255:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                con.close()
+                sys.exit()
         background.render()
         all_sprites.draw(surface)
         player.single_score(surface)
@@ -1658,6 +1663,14 @@ def start_the_game(other_info=None):
                             mana.mana -= 6
                             player.attacking = True
                             FireBall()
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_r and intro_count <= 0:
+                        player.heart -= 1
+                        heart.heart -= 1
+                        if heart.heart >= 0:
+                            outro_play(replay=True)
+                        else:
+                            outro_play(end_of_game=True)
             keys = pygame.key.get_pressed()
             if keys[pygame.K_DELETE]:
                 world.key_dx = WORLD_VEL
