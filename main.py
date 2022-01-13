@@ -1485,10 +1485,10 @@ def end_the_game():
         color_of_difficulty = DIFFICULTIES_COLOR[difficulty]
         text = mana_font.render(f'{word.get("cur diffic")}: {name_of_difficulty}',
                                 True, color_of_difficulty)
-        text_h = HEIGHT * 0.052
+        text_h = HEIGHT * 0.058
         text_w = text.get_width() * text_h / text.get_height()
         surface.blit(pygame.transform.smoothscale(text, (text_w, text_h)),
-                     (center_x - text_w // 2, HEIGHT * 0.1))
+                     (center_x - text_w // 2, HEIGHT * 0.08))
 
         text = mana_font.render(f'{max(heart.heart, 0)} {word.get("of")} '
                                 f'{len(life_states) - 1} {word.get("lives")}',
@@ -1633,8 +1633,10 @@ def pause_game():
     pause_counter = -1
     pause_direction = 2
     pause_black_screen = pygame.Surface((WIDTH, HEIGHT))
-    pause_black_screen.fill((10, 10, 10))
+    center_x = WIDTH // 2
+    counter, direction = 0, 3
     while True:
+        pause_black_screen.fill((10, 10, 10))
         surface.fill((0, 0, 0))
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -1642,7 +1644,7 @@ def pause_game():
                 con.close()
                 sys.exit()
             if event.type == pygame.KEYDOWN \
-                    and pause_direction > 0 and pause_counter >= 195:
+                    and pause_direction > 0 and pause_counter >= 200:
                 pause_direction *= -1
         background.render()
         other_group.draw(surface)
@@ -1652,12 +1654,30 @@ def pause_game():
         design_group.draw(surface)
         mana.show_score()
         surface.blit(player.image, player.rect)
-        if (pause_direction > 0 and pause_counter < 220) \
+        if (pause_direction > 0 and pause_counter < 235) \
                 or (pause_direction < 0 and pause_counter > 0):
+            if pause_counter <= 70:
+                pause_counter += pause_direction % 3
             pause_counter += pause_direction
             pause_black_screen.set_alpha(pause_counter)
-        elif pause_direction < 0 and pause_counter < 0:
+        elif pause_direction <= 0 and pause_counter <= 0:
             return
+
+        text = mana_font.render(f'{word.get("press key")}...',
+                                True, END_TEXT_COLOR)
+        text.set_alpha(counter)
+        text_h = HEIGHT * 0.053
+        text_w = text.get_width() * text_h / text.get_height()
+        pause_black_screen.blit(pygame.transform.smoothscale(text, (text_w, text_h)),
+                                (center_x - text_w // 2, HEIGHT * 0.92 - text_h))
+
+        if pause_counter >= 50:
+            counter += direction
+            if counter in [0, 255]:
+                direction *= -1
+        else:
+            counter = 0
+
         surface.blit(pause_black_screen, (0, 0))
         pygame.display.flip()
         FPS_CLOCK.tick(FPS)
