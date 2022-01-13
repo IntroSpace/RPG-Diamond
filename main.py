@@ -1616,6 +1616,40 @@ def play_menu():
     submenu.mainloop(surface)
 
 
+def pause_game():
+    pause_counter = -1
+    pause_direction = 2
+    pause_black_screen = pygame.Surface((WIDTH, HEIGHT))
+    pause_black_screen.fill((10, 10, 10))
+    while True:
+        surface.fill((0, 0, 0))
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                con.close()
+                sys.exit()
+            if event.type == pygame.KEYDOWN \
+                    and pause_direction > 0 and pause_counter >= 195:
+                pause_direction *= -1
+        background.render()
+        other_group.draw(surface)
+        particles_group.draw(surface)
+        enemy_group.draw(surface)
+        player.single_score(surface)
+        design_group.draw(surface)
+        mana.show_score()
+        surface.blit(player.image, player.rect)
+        if (pause_direction > 0 and pause_counter < 220) \
+                or (pause_direction < 0 and pause_counter > 0):
+            pause_counter += pause_direction
+            pause_black_screen.set_alpha(pause_counter)
+        elif pause_direction < 0 and pause_counter < 0:
+            return
+        surface.blit(pause_black_screen, (0, 0))
+        pygame.display.flip()
+        FPS_CLOCK.tick(FPS)
+
+
 def start_the_game(other_info=None):
     global world, level_num, player, portal, player_state, mana, completed_levels, background, \
         heart, player_mana_state, max_values, enemies_killed, cur_enemies_killed, prev_level_num, \
@@ -1673,6 +1707,8 @@ def start_the_game(other_info=None):
                             outro_play(replay=True)
                         else:
                             outro_play(end_of_game=True)
+                    elif event.key == pygame.K_p and intro_count <= 0:
+                        pause_game()
                     if event.key == pygame.K_x:
                         if mana.mana >= 6 and player.magic_cooldown:
                             mana.mana -= 6
