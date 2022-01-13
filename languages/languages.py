@@ -68,7 +68,8 @@ lang = {
         'show port': 'Порт: ',
         'show ip': 'IP: ',
         'tell friend': 'Скажите эти данные своему другу',
-        'friend got lvl': 'Этот уровень был доставлен вашему другу '
+        'friend got lvl': 'Этот уровень был доставлен вашему другу ',
+        'cur diffic': 'Текущая сложность'
     },
     'en': {
         'back': 'Back',
@@ -139,6 +140,7 @@ lang = {
         'show port': 'Port: ',
         'show ip': 'IP: ',
         'tell friend': 'Tell this information to your friend',
-        'friend got lvl': 'This level was delivered to your friend '
+        'friend got lvl': 'This level was delivered to your friend ',
+        'cur diffic': 'Current difficulty'
     }
 }

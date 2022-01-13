@@ -67,6 +67,7 @@ completed_levels = 0
 background = None
 DEFAULT_BG = 'lands.png'
 tutor_animation = None
+DIFFICULTIES_NAME = [word.get("very easy"), word.get("easy"), word.get("med"), word.get("hard")]
 PARTICLES_BY_DIFFICULTY = [2, 3, 6, 9]
 PARTS_COUNT = 2
 GAME_LEVELS = ['level1', 'level2', 'level3']
@@ -1476,7 +1477,17 @@ def end_the_game():
             if event.type == pygame.KEYDOWN:
                 return
         center_x = WIDTH // 2
-        center_y = HEIGHT // 2
+        center_y = HEIGHT // 2 + HEIGHT * 0.007
+
+        difficulty = PARTICLES_BY_DIFFICULTY.index(PARTS_COUNT)
+        name_of_difficulty = DIFFICULTIES_NAME[difficulty]
+        text = mana_font.render(f'{word.get("cur diffic")}: {name_of_difficulty}',
+                                True, END_TEXT_COLOR)
+        text_h = HEIGHT * 0.052
+        text_w = text.get_width() * text_h / text.get_height()
+        surface.blit(pygame.transform.smoothscale(text, (text_w, text_h)),
+                     (center_x - text_w // 2, HEIGHT * 0.1))
+
         text = mana_font.render(f'{max(heart.heart, 0)} {word.get("of")} '
                                 f'{len(life_states) - 1} {word.get("lives")}',
                                 True, END_TEXT_COLOR)
@@ -1514,7 +1525,7 @@ def end_the_game():
         text_h = HEIGHT * 0.052
         text_w = text.get_width() * text_h / text.get_height()
         surface.blit(pygame.transform.smoothscale(text, (text_w, text_h)),
-                     (center_x - text_w // 2, HEIGHT * 0.94 - text_h))
+                     (center_x - text_w // 2, HEIGHT * 0.92 - text_h))
 
         counter += direction
         if counter in [0, 255]:
