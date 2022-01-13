@@ -68,6 +68,7 @@ background = None
 DEFAULT_BG = 'lands.png'
 tutor_animation = None
 DIFFICULTIES_NAME = [word.get("very easy"), word.get("easy"), word.get("med"), word.get("hard")]
+DIFFICULTIES_COLOR = [(150, 150, 248), (102, 102, 255), (220, 87, 87), (187, 52, 52)]
 PARTICLES_BY_DIFFICULTY = [2, 3, 6, 9]
 PARTS_COUNT = 2
 GAME_LEVELS = ['level1', 'level2', 'level3']
@@ -1481,8 +1482,9 @@ def end_the_game():
 
         difficulty = PARTICLES_BY_DIFFICULTY.index(PARTS_COUNT)
         name_of_difficulty = DIFFICULTIES_NAME[difficulty]
+        color_of_difficulty = DIFFICULTIES_COLOR[difficulty]
         text = mana_font.render(f'{word.get("cur diffic")}: {name_of_difficulty}',
-                                True, END_TEXT_COLOR)
+                                True, color_of_difficulty)
         text_h = HEIGHT * 0.052
         text_w = text.get_width() * text_h / text.get_height()
         surface.blit(pygame.transform.smoothscale(text, (text_w, text_h)),
