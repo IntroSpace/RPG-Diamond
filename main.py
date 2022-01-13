@@ -53,6 +53,7 @@ pygame.display.set_caption("RPG Diamond")
 game_font = pygame.font.Font(os.path.abspath('data/fonts/pixeloid_sans.ttf'), 33)
 special_font = pygame.font.Font(os.path.abspath('data/fonts/pixeloid_bold.ttf'), 33)
 mana_font = pygame.font.Font(os.path.abspath('data/fonts/pixeloid_sans.ttf'), tile_size)
+big_font = pygame.font.Font(os.path.abspath('data/fonts/pixeloid_sans.ttf'), tile_size * 5)
 intro_count = None
 s = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
 player_state = None
@@ -116,6 +117,10 @@ knife_attack_sound = CustomSound('data/sounds/knife_attack.wav')
 knife_attack_sound.set_volume(0.45)
 teleport_sound = CustomSound('data/sounds/teleport.wav')
 teleport_sound.set_volume(0.75)
+rev_count_sound = CustomSound('data/sounds/reverse_counter_bits.wav')
+rev_count_sound.set_volume(0.82)
+count_end_sound = CustomSound('data/sounds/reverse_counter_end.wav')
+count_end_sound.set_volume(0.73)
 pygame.mixer.music.load('data/sounds/background_music.wav')
 pygame.mixer.music.set_volume(vol_music)
 pygame.mixer.music.play(-1)
@@ -943,7 +948,7 @@ class Bat(Enemy):
             mana.mana += self.mana
         self.frame = 2, 0
         if Enemy.bats == 1:
-            bat_sound.fadeout(1000)
+            bat_sound.fadeout(1300)
 
     def is_killed(self):
         return self.frame[0] == 2
@@ -1634,7 +1639,11 @@ def pause_game():
     pause_direction = 2
     pause_black_screen = pygame.Surface((WIDTH, HEIGHT))
     center_x = WIDTH // 2
+    center_y = HEIGHT // 2
     counter, direction = 0, 3
+    bat_sound.fadeout(1300)
+    rev_count_num = 0
+    rev_counter = 0
     while True:
         pause_black_screen.fill((10, 10, 10))
         surface.fill((0, 0, 0))
@@ -1644,8 +1653,12 @@ def pause_game():
                 con.close()
                 sys.exit()
             if event.type == pygame.KEYDOWN \
-                    and pause_direction > 0 and pause_counter >= 200:
-                pause_direction *= -1
+                    and pause_direction > 0 and pause_counter >= 245:
+                rev_count_num = 3
+                pause_direction = -1
+                pause_counter = 245
+                if Enemy.bats > 0:
+                    bat_sound.play(fade_ms=900)
         background.render()
         other_group.draw(surface)
         particles_group.draw(surface)
@@ -1654,14 +1667,12 @@ def pause_game():
         design_group.draw(surface)
         mana.show_score()
         surface.blit(player.image, player.rect)
-        if (pause_direction > 0 and pause_counter < 235) \
+        if (pause_direction > 0 and pause_counter < 245) \
                 or (pause_direction < 0 and pause_counter > 0):
-            if pause_counter <= 70:
-                pause_counter += pause_direction % 3
+            if pause_counter <= 70 and pause_direction > 0:
+                pause_counter += pause_direction // 2
             pause_counter += pause_direction
             pause_black_screen.set_alpha(pause_counter)
-        elif pause_direction <= 0 and pause_counter <= 0:
-            return
 
         text = mana_font.render(f'{word.get("press key")}...',
                                 True, END_TEXT_COLOR)
@@ -1671,7 +1682,35 @@ def pause_game():
         pause_black_screen.blit(pygame.transform.smoothscale(text, (text_w, text_h)),
                                 (center_x - text_w // 2, HEIGHT * 0.92 - text_h))
 
-        if pause_counter >= 50:
+        if rev_count_num > 0 and pause_counter < 235:
+            if 0 < pause_counter:
+                rev_counter = 85 - (pause_counter + 20) % 85
+            else:
+                rev_counter += 1
+            if rev_counter == 84:
+                if rev_count_num == 1:
+                    count_end_sound.play()
+                    return
+                rev_count_num -= 1
+            if rev_counter <= 15:
+                if rev_counter == 15:
+                    rev_count_sound.play()
+                text = mana_font.render(str(rev_count_num), True, END_TEXT_COLOR)
+                text_h = tile_size * 8 // (16 - rev_counter)
+                text_w = text.get_width() * text_h / text.get_height()
+                surface.blit(pygame.transform.smoothscale(text, (text_w, text_h)),
+                             (center_x - text_w // 2, center_y - text_h // 2))
+            else:
+                text = mana_font.render(str(rev_count_num), True, END_TEXT_COLOR)
+                text.set_alpha((86 - rev_counter + 8) * 3)
+                text_h = tile_size * 8
+                text_w = text.get_width() * text_h / text.get_height()
+                surface.blit(pygame.transform.smoothscale(text, (text_w, text_h)),
+                             (center_x - text_w // 2, center_y - text_h // 2))
+
+        if rev_count_num > 0:
+            counter -= min([counter, 5])
+        elif pause_counter >= 60:
             counter += direction
             if counter in [0, 255]:
                 direction *= -1
