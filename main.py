@@ -1652,13 +1652,19 @@ def pause_game():
                 pygame.quit()
                 con.close()
                 sys.exit()
-            if event.type == pygame.KEYDOWN \
-                    and pause_direction > 0 and pause_counter >= 245:
-                rev_count_num = 3
-                pause_direction = -1
-                pause_counter = 245
-                if Enemy.bats > 0:
-                    bat_sound.play(fade_ms=900)
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_z and pause_counter >= 150:
+                    set_music_volume([[0, (vol_music + 1) % 2]])
+                    save_settings()
+                elif event.key == pygame.K_x and pause_counter >= 150:
+                    set_sound_volume([[0, (vol_sound + 1) % 2]])
+                    save_settings()
+                elif pause_direction > 0 and pause_counter >= 245:
+                    rev_count_num = 3
+                    pause_direction = -1
+                    pause_counter = 245
+                    if Enemy.bats > 0:
+                        bat_sound.play(fade_ms=900)
         background.render()
         other_group.draw(surface)
         particles_group.draw(surface)
@@ -1674,7 +1680,25 @@ def pause_game():
             pause_counter += pause_direction
             pause_black_screen.set_alpha(pause_counter)
 
-        text = mana_font.render(f'{word.get("press key")}...',
+        text = mana_font.render(f'{word.get(f"press z music {vol_music}")}...',
+                                True, END_TEXT_COLOR)
+        text.set_alpha(min([170, counter]))
+        text_h = HEIGHT * 0.03
+        text_w = text.get_width() * text_h / text.get_height()
+        pause_black_screen.blit(pygame.transform.smoothscale(text, (text_w, text_h)),
+                                (center_x - text_w // 2,
+                                 HEIGHT * 0.92 - text_h * 2 - HEIGHT * 0.055))
+
+        text = mana_font.render(f'{word.get(f"press x sound {vol_sound}")}...',
+                                True, END_TEXT_COLOR)
+        text.set_alpha(min([205, counter]))
+        text_h = HEIGHT * 0.03
+        text_w = text.get_width() * text_h / text.get_height()
+        pause_black_screen.blit(pygame.transform.smoothscale(text, (text_w, text_h)),
+                                (center_x - text_w // 2,
+                                 HEIGHT * 0.92 - text_h - HEIGHT * 0.055))
+
+        text = mana_font.render(f'{word.get("press other key")}...',
                                 True, END_TEXT_COLOR)
         text.set_alpha(counter)
         text_h = HEIGHT * 0.053
