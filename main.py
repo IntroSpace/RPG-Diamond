@@ -1687,7 +1687,7 @@ def pause_game():
         text_w = text.get_width() * text_h / text.get_height()
         pause_black_screen.blit(pygame.transform.smoothscale(text, (text_w, text_h)),
                                 (center_x - text_w // 2,
-                                 HEIGHT * 0.92 - text_h * 2 - HEIGHT * 0.055))
+                                 HEIGHT * 0.92 - text_h * 2 - HEIGHT * 0.056))
 
         text = mana_font.render(f'{word.get(f"press x sound {vol_sound}")}...',
                                 True, END_TEXT_COLOR)
