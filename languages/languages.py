@@ -140,6 +140,9 @@ lang = {
         'warning level 2': 'The level must have at least 2 cells',
         'warning level 3': 'There should be no more than 10626 cells in level',
         'warning level 4': 'Level must have more blocks for border',
+        'warning level 5': 'Level must have more place for ground',
+        'warning level 6': 'Ground height must be integer',
+        'warning level 7': 'Ground height must be positive',
         'play customs': 'Play custom levels',
         'select level': 'Select level: ',
         'custom levels': 'Your levels',
@@ -157,6 +160,8 @@ lang = {
         'show ip': 'IP: ',
         'tell friend': 'Tell this information to your friend',
         'friend got lvl': 'This level was delivered to your friend ',
+        'ground block': 'Ground blocks',
+        'ground height': 'Ground height',
         'cur diffic': 'Current difficulty'
     }
 }

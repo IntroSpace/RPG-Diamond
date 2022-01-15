@@ -1987,7 +1987,7 @@ class CellBoard:
                (teleport_sprite, 'E'),
                (coin_sprite, 'C')]
 
-    def __init__(self, level_name, l_width, l_height, borders=0):
+    def __init__(self, level_name, l_width, l_height, borders=0, gr_info=(0, 0)):
         global background
         filename = os.path.join(CUSTOM_LEVELS_DIRECTORY, f'{level_name}.map')
         if l_width == l_height == -1:
@@ -2003,13 +2003,24 @@ class CellBoard:
                           for row in data[index:]]
         else:
             if borders != 0:
+                height = gr_info[1] if gr_info[0] > 0 else 0
                 border_block = self.objects[borders - 1][1]
                 self.board = [[border_block for _ in range(l_width)]]
                 self.board.extend([[border_block, *[' ' for _ in range(l_width - 2)], border_block]
                                    for _ in range(l_height - 2)])
+                if gr_info[0] > 0:
+                    ground_block = self.objects[gr_info[0] - 1][1]
+                    for i in range(l_height - gr_info[1], l_height - 1):
+                        self.board[i] = [border_block, *[ground_block for _ in range(l_width - 2)],
+                                         border_block]
                 self.board.append([border_block for _ in range(l_width)])
             else:
-                self.board = [[' ' for _ in range(l_width)] for _ in range(l_height)]
+                height = gr_info[1] if gr_info[0] > 0 else 0
+                self.board = [[' ' for _ in range(l_width)] for _ in range(l_height - height)]
+                if gr_info[0] > 0:
+                    ground_block = self.objects[gr_info[0] - 1][1]
+                    for i in range(l_height - height, l_height):
+                        self.board.append([ground_block for _ in range(l_width)])
             background = Background()
         self.width, self.height = len(self.board[0]), len(self.board)
         self.cur_tile = 'L'
@@ -2079,6 +2090,7 @@ class CellBoard:
     def render(self, screen):
         keys = pygame.key.get_pressed()
         mods = pygame.key.get_mods()
+        y_start = 0
         for y, row in enumerate(self.board):
             for x, cell in enumerate(row):
                 if (x_start := x * self.size + self.dx) + self.size < 0 \
@@ -2359,9 +2371,9 @@ def save_username(new_username):
     con.commit()
 
 
-def start_level_editor(level_name, l_width, l_height, borders=0):
+def start_level_editor(level_name, l_width, l_height, borders=0, gr_info=(0, 0)):
     global background
-    board = CellBoard(level_name, l_width, l_height, borders)
+    board = CellBoard(level_name, l_width, l_height, borders, gr_info)
     while True:
         background.render()
         for event in pygame.event.get():
@@ -2426,13 +2438,28 @@ def level_editor_menu():
     submenu.mainloop(surface)
 
 
-def check_width_and_height(submenu, level_name, warning, l_width, l_height, borders):
+def check_width_and_height(submenu, level_name, warning, l_width, l_height, borders, gr_info):
     if not l_width.isnumeric() or not l_height.isnumeric():
         warning.set_title(word.get("warning level 0"))
         warning.show()
         return
     else:
         l_width, l_height = int(l_width), int(l_height)
+    print(gr_info)
+    if gr_info[0] != 0:
+        blocks, height = gr_info
+        if height.isnumeric():
+            height = int(height)
+        else:
+            warning.set_title(word.get("warning level 6"))
+            warning.show()
+            return
+        if height < 1:
+            warning.set_title(word.get("warning level 7"))
+            warning.show()
+            return
+    else:
+        blocks = height = 0
     if l_width < 1 or l_height < 1:
         warning.set_title(word.get("warning level 1"))
         warning.show()
@@ -2442,12 +2469,18 @@ def check_width_and_height(submenu, level_name, warning, l_width, l_height, bord
     elif borders[0][1] != 0 and (l_width - 2) * (l_height - 2) < 2:
         warning.set_title(word.get("warning level 4"))
         warning.show()
+    elif blocks != 0 and l_width * (l_height - height) < 2:
+        warning.set_title(word.get("warning level 5"))
+        warning.show()
+    elif blocks != 0 and borders[0][1] != 0 and (l_width - 2) * (l_height - height - 1) < 2:
+        warning.set_title(word.get("warning level 5"))
+        warning.show()
     elif l_width * l_height > 10626:
         warning.set_title(word.get("warning level 3"))
         warning.show()
     else:
         submenu.disable()
-        start_level_editor(level_name, l_width, l_height, borders[0][1])
+        start_level_editor(level_name, l_width, l_height, borders[0][1], (blocks, height))
 
 
 def level_editor_menu__next_step(level_name):
@@ -2465,11 +2498,26 @@ def level_editor_menu__next_step(level_name):
     l_height = submenu.add.text_input(f'{word.get("height")} {word.get("size desc")}: ',
                                       default=20, onchange=lambda *_: warning.hide())
     border_blocks = submenu.add.selector(f'{word.get("borders")}: ', word.get(f"blocks list"))
+    ground_b = submenu.add.selector(f'{word.get("ground block")}: ', word.get(f"blocks list"))
+    ground_h = submenu.add.text_input(f'{word.get("ground height")}: ',
+                                      default=3, onchange=lambda *_: warning.hide())
+    ground_h.hide()
+
+    blocks = 0
+
+    def change_ground(value, index):
+        nonlocal blocks
+        blocks = value[0][1]
+        ground_h.hide() if blocks == 0 else ground_h.show()
+
+    ground_b.set_onchange(change_ground)
     submenu.add.button(word.get("start"), lambda: check_width_and_height(submenu, level_name,
                                                                          warning,
                                                                          l_width.get_value(),
                                                                          l_height.get_value(),
-                                                                         border_blocks.get_value()))
+                                                                         border_blocks.get_value(),
+                                                                         (blocks,
+                                                                          ground_h.get_value())))
     submenu.add.button(word.get("back"), submenu.disable)
     submenu.mainloop(surface)
 
