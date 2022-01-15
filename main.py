@@ -33,8 +33,6 @@ new_music = vol_music
 new_sound = vol_sound
 
 pygame.init()
-pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN, pygame.DROPFILE,
-                          pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP])
 WIDTH, HEIGHT = pygame.display.Info().current_w, pygame.display.Info().current_h
 # WIDTH, HEIGHT = 1504, 846
 # WIDTH, HEIGHT = 1008, 567
@@ -1317,7 +1315,6 @@ class Particle(pygame.sprite.Sprite):
         # перемещаем частицу
         self.rect.x += self.velocity.x
         self.rect.y += self.velocity.y
-        # позже будет правильное условие
         self.image.set_alpha(min([255, self.count]))
         if self.count <= 10:
             self.kill()
@@ -1997,7 +1994,7 @@ class CellBoard:
                (teleport_sprite, 'E'),
                (coin_sprite, 'C')]
 
-    def __init__(self, level_name, l_width, l_height):
+    def __init__(self, level_name, l_width, l_height, borders=0):
         global background
         filename = os.path.join(CUSTOM_LEVELS_DIRECTORY, f'{level_name}.map')
         if l_width == l_height == -1:
@@ -2012,7 +2009,14 @@ class CellBoard:
             self.board = [list(str(row).ljust(len(max(data[index:], key=len)), ' '))
                           for row in data[index:]]
         else:
-            self.board = [[' ' for _ in range(l_width)] for _ in range(l_height)]
+            if borders != 0:
+                border_block = self.objects[borders - 1][1]
+                self.board = [[border_block for _ in range(l_width)]]
+                self.board.extend([[border_block, *[' ' for _ in range(l_width - 2)], border_block]
+                                   for _ in range(l_height - 2)])
+                self.board.append([border_block for _ in range(l_width)])
+            else:
+                self.board = [[' ' for _ in range(l_width)] for _ in range(l_height)]
             background = Background()
         self.width, self.height = len(self.board[0]), len(self.board)
         self.cur_tile = 'L'
@@ -2362,9 +2366,9 @@ def save_username(new_username):
     con.commit()
 
 
-def start_level_editor(level_name, l_width, l_height):
+def start_level_editor(level_name, l_width, l_height, borders=0):
     global background
-    board = CellBoard(level_name, l_width, l_height)
+    board = CellBoard(level_name, l_width, l_height, borders)
     while True:
         background.render()
         for event in pygame.event.get():
@@ -2429,7 +2433,7 @@ def level_editor_menu():
     submenu.mainloop(surface)
 
 
-def check_width_and_height(submenu, level_name, warning, l_width, l_height):
+def check_width_and_height(submenu, level_name, warning, l_width, l_height, borders):
     if not l_width.isnumeric() or not l_height.isnumeric():
         warning.set_title(word.get("warning level 0"))
         warning.show()
@@ -2442,12 +2446,15 @@ def check_width_and_height(submenu, level_name, warning, l_width, l_height):
     elif l_width * l_height < 2:
         warning.set_title(word.get("warning level 2"))
         warning.show()
+    elif borders[0][1] != 0 and (l_width - 2) * (l_height - 2) < 2:
+        warning.set_title(word.get("warning level 4"))
+        warning.show()
     elif l_width * l_height > 10626:
         warning.set_title(word.get("warning level 3"))
         warning.show()
     else:
         submenu.disable()
-        start_level_editor(level_name, l_width, l_height)
+        start_level_editor(level_name, l_width, l_height, borders[0][1])
 
 
 def level_editor_menu__next_step(level_name):
@@ -2464,10 +2471,12 @@ def level_editor_menu__next_step(level_name):
                                      onchange=lambda *_: warning.hide())
     l_height = submenu.add.text_input(f'{word.get("height")} {word.get("size desc")}: ',
                                       default=20, onchange=lambda *_: warning.hide())
+    border_blocks = submenu.add.selector(f'{word.get("borders")}: ', word.get(f"blocks list"))
     submenu.add.button(word.get("start"), lambda: check_width_and_height(submenu, level_name,
                                                                          warning,
                                                                          l_width.get_value(),
-                                                                         l_height.get_value()))
+                                                                         l_height.get_value(),
+                                                                         border_blocks.get_value()))
     submenu.add.button(word.get("back"), submenu.disable)
     submenu.mainloop(surface)
 
