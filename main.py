@@ -85,6 +85,7 @@ class CustomSound:
         self.sound = pygame.mixer.Sound(filename)
         self.volume = volume
         self.sound.set_volume(volume)
+        self.set_default_volume(vol_sound)
 
     def set_volume(self, volume):
         self.volume = volume
@@ -103,22 +104,14 @@ class CustomSound:
         self.sound.fadeout(*args, **kwargs)
 
 
-pick_up = CustomSound('data/sounds/pick_up.wav')
-pick_up.set_volume(0.22)
-player_regeneration = CustomSound('data/sounds/player_regeneration.wav')
-player_regeneration.set_volume(0.08)
-bat_sound = CustomSound('data/sounds/bats.wav')
-bat_sound.set_volume(0.9)
-jump_sound = CustomSound('data/sounds/jump.wav')
-jump_sound.set_volume(0.27)
-knife_attack_sound = CustomSound('data/sounds/knife_attack.wav')
-knife_attack_sound.set_volume(0.45)
-teleport_sound = CustomSound('data/sounds/teleport.wav')
-teleport_sound.set_volume(0.75)
-rev_count_sound = CustomSound('data/sounds/reverse_counter_bits.wav')
-rev_count_sound.set_volume(0.83)
-count_end_sound = CustomSound('data/sounds/reverse_counter_end.wav')
-count_end_sound.set_volume(0.75)
+pick_up = CustomSound('data/sounds/pick_up.wav', 0.22)
+player_regeneration = CustomSound('data/sounds/player_regeneration.wav', 0.08)
+bat_sound = CustomSound('data/sounds/bats.wav', 0.9)
+jump_sound = CustomSound('data/sounds/jump.wav', 0.27)
+knife_attack_sound = CustomSound('data/sounds/knife_attack.wav', 0.45)
+teleport_sound = CustomSound('data/sounds/teleport.wav', 0.75)
+rev_count_sound = CustomSound('data/sounds/reverse_counter_bits.wav', 0.83)
+count_end_sound = CustomSound('data/sounds/reverse_counter_end.wav', 0.75)
 pygame.mixer.music.load('data/sounds/background_music.wav')
 pygame.mixer.music.set_volume(vol_music)
 pygame.mixer.music.play(-1)
