@@ -2042,6 +2042,8 @@ class CellBoard:
         self.mouse_downed = False
         self.rect_draw = -1, -1
         self.rect_action = -1
+        self.warning_text = None
+        self.warn_counter = [-1, 0]
 
     def set_size(self, new_size):
         x, y = pygame.mouse.get_pos()
@@ -2134,6 +2136,19 @@ class CellBoard:
                                       self.size, self.size), width=CELL_WIDTH * 3)
             self.inventory_render()
         self.mouse_downed = False
+        if self.warning_text is not None:
+            center_x = WIDTH // 2
+            text = mana_font.render(self.warning_text, True, pygame.Color('#B63C3C'))
+            text.set_alpha(int(self.warn_counter[0]))
+            text_h = HEIGHT * 0.055
+            text_w = text.get_width() * text_h / text.get_height()
+            surface.blit(pygame.transform.smoothscale(text, (text_w, text_h)),
+                         (center_x - text_w // 2, HEIGHT * 0.1))
+            self.warn_counter[0] += self.warn_counter[1]
+            if self.warn_counter[0] >= 251 and self.warn_counter[1] > 0:
+                self.warn_counter = [255, -0.8]
+            elif self.warn_counter[0] <= 3 and self.warn_counter[1] < 0:
+                self.clear_warning()
 
     def inventory_render(self):
         self.inventory_surf.fill((35, 35, 35))
@@ -2287,6 +2302,14 @@ class CellBoard:
         res_board = [''.join(row) + '\n' for row in self.board]
         return res_board
 
+    def warning(self, warn_text):
+        self.warning_text = warn_text
+        self.warn_counter = [0, 5]
+
+    def clear_warning(self):
+        self.warn_counter = [-1, 0]
+        self.warning_text = None
+
 
 def restart_with_language(lang_menu, new_lang):
     new_lang = new_lang[0][1]
@@ -2399,7 +2422,12 @@ def start_level_editor(level_name, l_width, l_height, borders=0, gr_info=(0, 0))
                 board.mouse_up(event.button)
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_s and pygame.key.get_mods() & pygame.KMOD_CTRL:
-                    save_level_menu(level_name, board.get_level_map())
+                    if board.player_pos == (-1, -1) or board.teleport_pos == (-1, -1) \
+                            or board.player_pos == board.teleport_pos:
+                        board.warning(word.get("warning player teleport"))
+                    else:
+                        board.clear_warning()
+                        save_level_menu(level_name, board.get_level_map())
                 if event.key == pygame.K_ESCAPE:
                     return
         if background is None:
@@ -2445,7 +2473,6 @@ def check_width_and_height(submenu, level_name, warning, l_width, l_height, bord
         return
     else:
         l_width, l_height = int(l_width), int(l_height)
-    print(gr_info)
     if gr_info[0] != 0:
         blocks, height = gr_info
         if height.isnumeric():
@@ -2503,12 +2530,8 @@ def level_editor_menu__next_step(level_name):
                                       default=3, onchange=lambda *_: warning.hide())
     ground_h.hide()
 
-    blocks = 0
-
     def change_ground(value, index):
-        nonlocal blocks
-        blocks = value[0][1]
-        ground_h.hide() if blocks == 0 else ground_h.show()
+        ground_h.hide() if value[0][1] == 0 else ground_h.show()
 
     ground_b.set_onchange(change_ground)
     submenu.add.button(word.get("start"), lambda: check_width_and_height(submenu, level_name,
@@ -2516,7 +2539,7 @@ def level_editor_menu__next_step(level_name):
                                                                          l_width.get_value(),
                                                                          l_height.get_value(),
                                                                          border_blocks.get_value(),
-                                                                         (blocks,
+                                                                         (ground_b.get_value()[0][1],
                                                                           ground_h.get_value())))
     submenu.add.button(word.get("back"), submenu.disable)
     submenu.mainloop(surface)
