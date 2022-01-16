@@ -2279,9 +2279,14 @@ class CellBoard:
                         self.tile_on_player = ' '
                     self.tile_on_teleport = self.board[ind_y][ind_x]
                     self.teleport_pos = ind_x, ind_y
+                if self.player_pos == (ind_x, ind_y) and self.cur_tile != 'P':
+                    self.player_pos = -1, -1
+                    self.tile_on_player = ' '
+                if self.teleport_pos == (ind_x, ind_y) and self.cur_tile != 'E':
+                    self.teleport_pos = -1, -1
+                    self.tile_on_teleport = ' '
                 self.board[ind_y][ind_x] = self.cur_tile
             elif pygame.mouse.get_pressed()[2]:
-                print(self.player_pos, (ind_x, ind_y))
                 if self.player_pos == (ind_x, ind_y):
                     self.player_pos = -1, -1
                     self.tile_on_player = ' '
@@ -2437,9 +2442,6 @@ def start_level_editor(level_name, l_width, l_height, borders=0, gr_info=(0, 0))
                 board.mouse_up(event.button)
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_s and pygame.key.get_mods() & pygame.KMOD_CTRL:
-                    print('---------------------------------')
-                    print(board.player_pos, board.teleport_pos)
-                    print(board.tile_on_player, board.tile_on_teleport)
                     if board.player_pos == board.teleport_pos == (-1, -1):
                         board.warning(word.get("warning player teleport"))
                     elif board.player_pos == (-1, -1):
