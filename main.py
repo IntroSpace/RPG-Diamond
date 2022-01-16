@@ -2422,9 +2422,17 @@ def start_level_editor(level_name, l_width, l_height, borders=0, gr_info=(0, 0))
                 board.mouse_up(event.button)
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_s and pygame.key.get_mods() & pygame.KMOD_CTRL:
-                    if board.player_pos == (-1, -1) or board.teleport_pos == (-1, -1) \
-                            or board.player_pos == board.teleport_pos:
+                    if board.player_pos == board.teleport_pos == (-1, -1):
                         board.warning(word.get("warning player teleport"))
+                    elif board.player_pos == (-1, -1):
+                        board.warning(word.get("warning only player"))
+                    elif board.teleport_pos == (-1, -1):
+                        board.warning(word.get("warning only teleport"))
+                    elif board.player_pos == board.teleport_pos:
+                        if board.tile_on_player == 'E':
+                            board.warning(word.get("warning only teleport"))
+                        else:
+                            board.warning(word.get("warning only player"))
                     else:
                         board.clear_warning()
                         save_level_menu(level_name, board.get_level_map())
