@@ -2247,7 +2247,7 @@ class CellBoard:
         ind_x = x // self.size
         if 0 <= ind_y < len(self.board) and 0 <= ind_x < len(self.board[0]):
             if pygame.mouse.get_pressed()[0]:
-                if self.cur_tile == 'P' and self.player_pos != (ind_x, ind_y):
+                if self.cur_tile == 'P' and self.board[ind_y][ind_x] != 'P':
                     player_x, player_y = self.player_pos
                     if self.board[player_y][player_x] == 'P':
                         if self.tile_on_player == 'E' and self.player_pos != self.teleport_pos:
@@ -2256,7 +2256,7 @@ class CellBoard:
                             self.board[player_y][player_x] = self.tile_on_player
                     self.tile_on_player = self.board[ind_y][ind_x]
                     self.player_pos = ind_x, ind_y
-                elif self.cur_tile == 'E' and self.teleport_pos != (ind_x, ind_y):
+                elif self.cur_tile == 'E' and self.board[ind_y][ind_x] != 'E':
                     tel_x, tel_y = self.teleport_pos
                     if self.board[tel_y][tel_x] == 'E':
                         if self.tile_on_teleport == 'P' and self.player_pos != self.teleport_pos:
@@ -2267,10 +2267,10 @@ class CellBoard:
                     self.teleport_pos = ind_x, ind_y
                 self.board[ind_y][ind_x] = self.cur_tile
             elif pygame.mouse.get_pressed()[2]:
-                if self.board[ind_y][ind_x] == 'P':
+                if self.player_pos == (ind_x, ind_y):
                     self.player_pos = -1, -1
                     self.tile_on_player = ' '
-                if self.board[ind_y][ind_x] == 'E':
+                if self.teleport_pos == (ind_x, ind_y):
                     self.teleport_pos = -1, -1
                     self.tile_on_teleport = ' '
                 self.board[ind_y][ind_x] = self.spare_tile
