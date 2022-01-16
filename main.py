@@ -1989,13 +1989,28 @@ class CellBoard:
 
     def __init__(self, level_name, l_width, l_height, borders=0, gr_info=(0, 0)):
         global background
+        self.player_pos = -1, -1
+        self.tile_on_player = ' '
+        self.teleport_pos = -1, -1
+        self.tile_on_teleport = ' '
         filename = os.path.join(CUSTOM_LEVELS_DIRECTORY, f'{level_name}.map')
         if l_width == l_height == -1:
             with open(filename, mode='r', encoding='utf8') as f:
-                data = list(map(lambda x: x.replace('\n', ''), f.readlines()))
+                data = list()
+                for y, line in enumerate(f.readlines()):
+                    line = line.replace('\n', '')
+                    if 'P' in line:
+                        self.player_pos = line.index('P'), y
+                    if 'E' in line:
+                        self.teleport_pos = line.index('E'), y
+                    data.append(line)
             index = 1
             try:
                 background = Background(data[0])
+                if self.player_pos[1] != -1:
+                    self.player_pos = self.player_pos[0], self.player_pos[1] - 1
+                if self.teleport_pos[1] != -1:
+                    self.teleport_pos = self.teleport_pos[0], self.teleport_pos[1] - 1
             except FileNotFoundError:
                 background = Background()
                 index = 0
@@ -2003,7 +2018,6 @@ class CellBoard:
                           for row in data[index:]]
         else:
             if borders != 0:
-                height = gr_info[1] if gr_info[0] > 0 else 0
                 border_block = self.objects[borders - 1][1]
                 self.board = [[border_block for _ in range(l_width)]]
                 self.board.extend([[border_block, *[' ' for _ in range(l_width - 2)], border_block]
@@ -2035,10 +2049,6 @@ class CellBoard:
         self.indent_x = (self.inventory_surf.get_width() - tile_size * 4) // 5
         y_count = ceil((len(self.objects) - 1) / 4 + 0.01)
         self.indent_y = (self.inventory_surf.get_height() - tile_size * y_count) // (y_count + 1)
-        self.player_pos = -1, -1
-        self.tile_on_player = ' '
-        self.teleport_pos = -1, -1
-        self.tile_on_teleport = ' '
         self.mouse_downed = False
         self.rect_draw = -1, -1
         self.rect_action = -1
@@ -2254,6 +2264,8 @@ class CellBoard:
                             self.board[player_y][player_x] = self.tile_on_player = ' '
                         else:
                             self.board[player_y][player_x] = self.tile_on_player
+                    if self.tile_on_teleport == 'P':
+                        self.tile_on_teleport = ' '
                     self.tile_on_player = self.board[ind_y][ind_x]
                     self.player_pos = ind_x, ind_y
                 elif self.cur_tile == 'E' and self.board[ind_y][ind_x] != 'E':
@@ -2263,10 +2275,13 @@ class CellBoard:
                             self.board[tel_y][tel_x] = self.tile_on_teleport = ' '
                         else:
                             self.board[tel_y][tel_x] = self.tile_on_teleport
+                    if self.tile_on_player == 'E':
+                        self.tile_on_player = ' '
                     self.tile_on_teleport = self.board[ind_y][ind_x]
                     self.teleport_pos = ind_x, ind_y
                 self.board[ind_y][ind_x] = self.cur_tile
             elif pygame.mouse.get_pressed()[2]:
+                print(self.player_pos, (ind_x, ind_y))
                 if self.player_pos == (ind_x, ind_y):
                     self.player_pos = -1, -1
                     self.tile_on_player = ' '
@@ -2422,6 +2437,9 @@ def start_level_editor(level_name, l_width, l_height, borders=0, gr_info=(0, 0))
                 board.mouse_up(event.button)
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_s and pygame.key.get_mods() & pygame.KMOD_CTRL:
+                    print('---------------------------------')
+                    print(board.player_pos, board.teleport_pos)
+                    print(board.tile_on_player, board.tile_on_teleport)
                     if board.player_pos == board.teleport_pos == (-1, -1):
                         board.warning(word.get("warning player teleport"))
                     elif board.player_pos == (-1, -1):
