@@ -13,32 +13,50 @@ import pygame_menu
 from languages.languages import lang
 import sqlite3
 
+# открываем соединение с sql базой
 con = sqlite3.connect("game.sql")
 
 
-def load_lang():
+def load_lang() -> str:
+    """
+    Возвращает текущий установленный язык.
+
+    :return: Язык интерфейса
+    :rtype: str
+    """
     cur = con.cursor()
     return cur.execute("""SELECT value FROM settings WHERE name = 'lang'""").fetchone()[0]
 
 
-def load_settings():
+def load_settings() -> list:
+    """
+    Возвращает никнейм игрока и все настройки игры.
+
+    :return: Настройки игры
+    :rtype: list
+    """
     cur = con.cursor()
     return [i[0] for i in cur.execute("""SELECT value FROM settings ORDER BY id""").fetchall()]
 
 
+# загружаем настройки с базы данных
 username, cur_lang, vol_music, vol_sound = load_settings()
+# получаем список фраз на текущем языке
 word = lang.get(cur_lang, dict())
+# выставляем значения звуков и музыки
 vol_music, vol_sound = int(vol_music), int(vol_sound)
 new_music = vol_music
 new_sound = vol_sound
 
 pygame.init()
+# получаем размеры экрана для кроссплатформенности
 WIDTH, HEIGHT = pygame.display.Info().current_w, pygame.display.Info().current_h
-# WIDTH, HEIGHT = 1504, 846
-# WIDTH, HEIGHT = 1008, 567
+# вычисляем размер одного блока
 tile_size = HEIGHT // 20
+# создаём игровое окно
 surface = pygame.display.set_mode((WIDTH, HEIGHT), pygame.DOUBLEBUF, 16)
 surface.set_alpha(None)
+# игровые константы
 ACC = 0.4 * tile_size / 54
 FRIC = - (0.09 + 0.01 * tile_size / 54)
 COUNT = 0
@@ -47,63 +65,107 @@ FPS = 60
 FPS_CLOCK = pygame.time.Clock()
 WORLD_VEL = 5
 MAX_WORLD_VEL = 5
+# установка названия игры
 pygame.display.set_caption("RPG Diamond")
+# инициализация необходимых шрифтов
 game_font = pygame.font.Font(os.path.abspath('data/fonts/pixeloid_sans.ttf'), 33)
 special_font = pygame.font.Font(os.path.abspath('data/fonts/pixeloid_bold.ttf'), 33)
 mana_font = pygame.font.Font(os.path.abspath('data/fonts/pixeloid_sans.ttf'), tile_size)
 big_font = pygame.font.Font(os.path.abspath('data/fonts/pixeloid_sans.ttf'), tile_size * 5)
+# переменные для запуска уровней
 intro_count = None
 s = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
 player_state = None
 player_mana_state = None
+# зона активации врагов
+# меняется в зависимости от сложности
 NON_COMFORT_ZONE = -1, -1
+# для подсчёта результатов
 max_values = [0, 0]
 enemies_killed = 0
 cur_enemies_killed = 0
 results = None
+# переменные для перезапуска уровней
 prev_level_num = None
 completed_levels = 0
+# задний фон игры
 background = None
 DEFAULT_BG = 'lands.png'
+# переменная для хранения класса анимации
 tutor_animation = None
+# значения для сложностей
 DIFFICULTIES_NAME = [word.get("very easy"), word.get("easy"), word.get("med"), word.get("hard")]
 DIFFICULTIES_COLOR = [(150, 150, 248), (102, 102, 255), (220, 87, 87), (187, 52, 52)]
 PARTICLES_BY_DIFFICULTY = [2, 3, 6, 9]
 PARTS_COUNT = 2
+# дефолт уровни
 GAME_LEVELS = ['level1', 'level2', 'level3']
 
+# файлы для показателя жизней и для обучения
 heart_files = ['death', 'onelife', 'halflife', 'almosthalflife', 'fulllife']
 stage_files = ['keyboard/arrows', 'keyboard/space', 'keyboard/enter',
                'mouse/left', 'mouse/right', 'keyboard/fireball_attack', 'keyboard/esc']
 
+# список звуков для установки громкости
 all_sounds = list()
 
 
 class CustomSound:
-    def __init__(self, filename, volume=1):
+    def __init__(self, filename: str, volume: int = 1) -> None:
+        """
+        Класс для звуков для более удобной настройки громкости
+
+        :param filename: Путь к файлу
+        :type filename: str
+        :param volume: Стандартная громкость звука
+        :type volume: int
+        """
         all_sounds.append(self)
         self.sound = pygame.mixer.Sound(filename)
         self.volume = volume
+        # выставляем громкости
         self.sound.set_volume(volume)
         self.set_default_volume(vol_sound)
 
-    def set_volume(self, volume):
+    def set_volume(self, volume: int) -> None:
+        """
+        Установка громкости
+
+        :param volume: Громкость
+        :type volume: int
+        """
         self.volume = volume
         self.sound.set_volume(volume)
 
-    def set_default_volume(self, new_volume):
+    def set_default_volume(self, new_volume: int) -> None:
+        """
+        Поставить громкость, выбранную пользователем
+
+        :param new_volume: Громкость из настроек
+        :type new_volume: int
+        """
         self.sound.set_volume(self.volume * new_volume)
 
-    def play(self, *args, **kwargs):
+    def play(self, *args, **kwargs) -> None:
+        """
+        Проигрывание звука
+        """
         self.sound.play(*args, **kwargs)
 
-    def stop(self):
+    def stop(self) -> None:
+        """
+        Остановить проигрывание звука
+        """
         self.sound.stop()
 
-    def fadeout(self, *args, **kwargs):
+    def fadeout(self, *args, **kwargs) -> None:
+        """
+        Плавная остановка проигрывания звука
+        """
         self.sound.fadeout(*args, **kwargs)
 
 
+# инициализация всех звуков
 pick_up = CustomSound('data/sounds/pick_up.wav', 0.22)
 player_regeneration = CustomSound('data/sounds/player_regeneration.wav', 0.08)
 bat_sound = CustomSound('data/sounds/bats.wav', 0.9)
@@ -112,17 +174,21 @@ knife_attack_sound = CustomSound('data/sounds/knife_attack.wav', 0.45)
 teleport_sound = CustomSound('data/sounds/teleport.wav', 0.75)
 rev_count_sound = CustomSound('data/sounds/reverse_counter_bits.wav', 0.83)
 count_end_sound = CustomSound('data/sounds/reverse_counter_end.wav', 0.75)
+# установка музыки
 pygame.mixer.music.load('data/sounds/background_music.wav')
 pygame.mixer.music.set_volume(vol_music)
 pygame.mixer.music.play(-1)
 
+# значения для редактора уровней
 CELL_COLOR = pygame.Color(245, 245, 245)
 CELL_CHOSEN_COLOR = pygame.Color(140, 185, 205)
 CELL_WIDTH = 1
 ITEM_CHOSEN_COLOR = pygame.Color(230, 235, 235)
 
+# значения для передачи по локальной сети
 ACCEPTED_PORTS = range(10000, 11000)
 
+# настраивание игровых переменных
 BG_COLOR = 45, 40, 40
 TEXT_COLOR = pygame.Color(115, 125, 125)
 STAGES_COLOR = pygame.Color(190, 195, 175)
@@ -130,9 +196,11 @@ END_TEXT_COLOR = 245, 245, 245
 TEXT_SHIFT = game_font.render(f'{word.get("your score")}: 0   ©',
                               True, TEXT_COLOR).get_width() // 1.4 + 15
 MANA_COLOR = pygame.Color(49, 105, 168)
+# расположения собственных уровней
 CUSTOM_LEVELS_DIRECTORY = os.path.join('levels/custom')
 CUSTOM_LEVELS_DIR_WITHOUT_LVL = os.path.join('custom')
 
+# список всех врагов для контроля ими
 enemies = list()
 
 # группа всех спрайтов
@@ -155,9 +223,20 @@ tutorial_group = pygame.sprite.Group()
 particles_group = pygame.sprite.Group()
 
 
-# Анимации для бега вправо
-def load_image(name, colorkey=None, size=None):
-    fullname = os.path.join('data', name)
+def load_image(image_name: str, colorkey: int = None, size: int = None) -> pygame.Surface:
+    """
+    Загружает спрайт
+
+    :param image_name: Путь к изображению
+    :type image_name: str
+    :param colorkey: Альфа переменная
+    :type colorkey: int
+    :param size: Размер спрайта
+    :type size: int
+    :return: Спрайт
+    :rtype: pygame.Surface
+    """
+    fullname = os.path.join('data', image_name)
     if not os.path.isfile(fullname):
         print(f'{word.get("img file")} \'{fullname}\' {word.get("not found")}')
         con.close()
@@ -178,7 +257,19 @@ def load_image(name, colorkey=None, size=None):
     return image
 
 
-def cut_sheet(filename, columns, size=tile_size):
+def cut_sheet(filename: str, columns: int, size: int = tile_size) -> list:
+    """
+    Нарезает однострочные спрайтщиты
+
+    :param filename: Путь к спрайтщиту
+    :type filename: str
+    :param columns: Количество столбцов спрайтов
+    :type columns: int
+    :param size: Размер спрайта
+    :type size: int
+    :return: Список спрайтов
+    :rtype: list
+    """
     sheet = load_image(filename)
     sprite_rect = pygame.Rect(0, 0, sheet.get_width() // columns,
                               sheet.get_height())
@@ -192,8 +283,18 @@ def cut_sheet(filename, columns, size=tile_size):
     return frames
 
 
-def sprites_by_directory(name, count):
-    direct = os.path.join('bomb', name)
+def sprites_by_directory(filename: str, count: int) -> list:
+    """
+    Объединяет спрайты из одной директории
+
+    :param filename: Путь к директории со спрайтами
+    :type filename: str
+    :param count: Количество спрайтов
+    :type count: int
+    :return: Список спрайтов
+    :rtype: list
+    """
+    direct = os.path.join('bomb', filename)
     frames = []
     for i in range(count):
         sprite = load_image(os.path.join(direct, f'{i}.png'))
@@ -201,6 +302,7 @@ def sprites_by_directory(name, count):
     return frames
 
 
+# анимации игрока
 run_animation_RIGHT = [load_image("Player_Sprite_R.png", size=tile_size),
                        load_image("Player_Sprite2_R.png", size=tile_size),
                        load_image("Player_Sprite3_R.png", size=tile_size),
@@ -208,7 +310,6 @@ run_animation_RIGHT = [load_image("Player_Sprite_R.png", size=tile_size),
                        load_image("Player_Sprite5_R.png", size=tile_size),
                        load_image("Player_Sprite6_R.png", size=tile_size)]
 
-# Анимации для бега влево
 run_animation_LEFT = [load_image("Player_Sprite_L.png", size=tile_size),
                       load_image("Player_Sprite2_L.png", size=tile_size),
                       load_image("Player_Sprite3_L.png", size=tile_size),
@@ -237,6 +338,7 @@ attack_animation_LEFT = [load_image("Player_Sprite_L.png", size=tile_size),
                          load_image("Player_Attack5_L.png", size=tile_size),
                          load_image("Player_Attack5_L.png", size=tile_size)]
 
+# анимации персонажа Bomby
 bomb_idle = cut_sheet('bomb/bomb_idle.png', 2)
 bomb_walk = cut_sheet('bomb/bomb_walk.png', 6)
 bomb_fall_down = cut_sheet('bomb/bomb_fall_down.png', 1)
@@ -244,7 +346,21 @@ bomb_jump_up = cut_sheet('bomb/bomb_jump_up.png', 1)
 bomb_explode = sprites_by_directory('bomb_explode', 4)
 
 
-def get_first_frame(sheet, col, row, pos=(0, 0)):
+def get_first_frame(sheet: pygame.Surface, col: int, row: int, pos: tuple = (0, 0)) -> pygame.Surface:
+    """
+    Забрать один спрайт из спрайтщита
+
+    :param sheet: Спрайтщит
+    :type sheet: pygame.Surface
+    :param col: Количество столбцов
+    :type col: int
+    :param row: Количество строчек
+    :type row: int
+    :param pos: Позиция необходимого спрайта
+    :type pos: tuple
+    :return: Необходимый спрайт
+    :rtype: pygame.Surface
+    """
     sprite_rect = pygame.Rect(0, 0, sheet.get_width() // col,
                               sheet.get_height() // row)
     rect = pygame.Rect(0, 0, tile_size, tile_size)
@@ -253,11 +369,13 @@ def get_first_frame(sheet, col, row, pos=(0, 0)):
         pygame.Rect(frame_location, sprite_rect.size)), rect.size)
 
 
+# берём спрайты для редактора уровней
 teleport_sprite = get_first_frame(load_image('green_portal.png'), 8, 3)
 spike_ball_sprite = get_first_frame(load_image('spike_ball.png'), 6, 1, pos=(2, 0))
 bat_sprite = get_first_frame(load_image('bat_sprite.png'), 5, 3, pos=(0, 1))
 coin_sprite = get_first_frame(load_image('coin_yellow.png'), 5, 1)
 
+# готовим анимации жизней
 life_states = [[] for i in range(len(heart_files))]
 for i, directory in enumerate(heart_files):
     final_dir = os.path.join('designs', directory)
@@ -265,18 +383,28 @@ for i, directory in enumerate(heart_files):
         life_states[i].append(pygame.transform.scale(load_image(os.path.join(final_dir, file)),
                                                      (0.11 * WIDTH, 0.11 / 4 * WIDTH)))
 
+# готовим этапы обучения
 stages = [[pygame.Surface((0, 0))]]
 for name in stage_files:
     stages.append(cut_sheet(f'tutorial/{name}.png', 2, size=tile_size * 2))
 
 
-def server_send_file(warning, level_name):
+def server_send_file(warning: pygame_menu.widgets.Label, level_name: str) -> None:
+    """
+    Запуск сервера для отправки уровня
+
+    :param warning: Label для вывода ошибок на экран
+    :type warning: pygame_menu.widgets.Label
+    :param level_name: Название уровня
+    :type level_name: str
+    """
     filename = 'levels/custom/' + level_name
     if not os.path.isfile(f'{filename}.map'):
         warning.show()
         return
     with open(f'{filename}.map', 'r') as f:
         background_name = f.readline().replace('\n', '')
+    # пробегаемся по портам, пока не найдем свободный
     for port in ACCEPTED_PORTS:
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -289,7 +417,10 @@ def server_send_file(warning, level_name):
             else:
                 print(e)
 
-    def disable():
+    def disable() -> None:
+        """
+        Остановка сервера
+        """
         try:
             socket.socket(socket.AF_INET, socket.SOCK_STREAM).connect((host, port))
         except Exception:
@@ -310,13 +441,27 @@ def server_send_file(warning, level_name):
     submenu.add.label(f'{word.get("show ip")}{host}')
     submenu.add.label(f'{word.get("show port")}{port}')
     submenu.add.button(word.get('back'), disable)
+    # запускаем сервер в отдельном потоке
     serv_acc = threading.Thread(name='serv_acc', target=server_accepting_client,
                                 args=(label, sock, filename, background_name))
     serv_acc.start()
     submenu.mainloop(surface)
 
 
-def server_accepting_client(label, sock, filename, background_name):
+def server_accepting_client(label: pygame_menu.widgets.Label, sock: socket.socket,
+                            filename: str, background_name: str) -> None:
+    """
+    Ожидание клиента и передача ему уровня с задним фоном
+
+    :param label: Label для вывода информации в процессе
+    :type label: pygame_menu.widgets.Label
+    :param sock: Сокет для отправки файлов
+    :type sock: socket.socket
+    :param filename: Название файла уровня
+    :type filename: str
+    :param background_name: Название заднего фона
+    :type background_name: str
+    """
     sock.listen(5)
     c, addr = sock.accept()
     try:
@@ -339,7 +484,17 @@ def server_accepting_client(label, sock, filename, background_name):
         pass
 
 
-def client_get_file(warning, host, port):
+def client_get_file(warning: pygame_menu.widgets.Label, host: str, port: int) -> None:
+    """
+    Запуск клиента для получения уровня
+
+    :param warning: Label для показа ошибок
+    :type warning: pygame_menu.widgets.Label
+    :param host: Хост сервера
+    :type host: str
+    :param port: Порт сервера
+    :type port: int
+    """
     if port.isnumeric():
         port = int(port)
     else:
@@ -362,11 +517,18 @@ def client_get_file(warning, host, port):
         warning.show()
         return
 
+    # запуск клиента в отдельном потоке
     client_main = threading.Thread(name='client_main', target=client_main_work, args=(s_get,))
     client_main.start()
 
 
-def client_main_work(s_get):
+def client_main_work(s_get: socket.socket) -> None:
+    """
+    Запуск клиента
+
+    :param s_get: Сокет дял получения уровня с задним фоном
+    :type s_get: socket.socket
+    """
     intro_info = s_get.recv(1024).decode()
     *server_player_name, filename = intro_info.split('.levels/custom/')
     server_player_name = ''.join(server_player_name)
@@ -719,7 +881,7 @@ class Player(pygame.sprite.Sprite):
             knife_attack_sound.play()
         if self.attack_frame > 9:
             self.attack_frame = -1
-            if not pygame.key.get_pressed()[pygame.K_RETURN]\
+            if not pygame.key.get_pressed()[pygame.K_RETURN] \
                     and not pygame.key.get_pressed()[pygame.K_z]:
                 self.attacking = False
         if self.direction == "RIGHT":
