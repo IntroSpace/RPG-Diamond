@@ -54,7 +54,7 @@ WIDTH, HEIGHT = pygame.display.Info().current_w, pygame.display.Info().current_h
 # вычисляем размер одного блока
 tile_size = HEIGHT // 20
 # создаём игровое окно
-surface = pygame.display.set_mode((WIDTH, HEIGHT), pygame.FULLSCREEN | pygame.DOUBLEBUF, 16)
+surface = pygame.display.set_mode((WIDTH, HEIGHT), pygame.DOUBLEBUF, 16)
 surface.set_alpha(None)
 # игровые константы
 ACC = 0.4 * tile_size / 54
