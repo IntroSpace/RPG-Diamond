@@ -553,14 +553,26 @@ def client_main_work(s_get: socket.socket) -> None:
 
 
 class World:
-    def __init__(self, screen_size):
+    def __init__(self, screen_size: tuple) -> None:
+        """
+        КЛасс для смещения камеры
+
+        :param screen_size: Размеры окна
+        :type screen_size: tuple
+        """
         self.dx = self.key_dx = 0
         self.dy = self.key_dy = 0
         width, height = screen_size
         self.borders_x = pygame.Rect(((width - height) // 2, 0, height, height))
         self.borders_y = pygame.Rect((0, tile_size * 5, width, int(tile_size * 11.1)))
 
-    def update(self, __player):
+    def update(self, __player) -> None:
+        """
+        Смещает камеру, если это необходимо
+
+        :param __player: Класс игрока
+        :type __player: Player
+        """
         player_rect = __player.rect
         if self.key_dx != 0:
             if __player.vel.x == __player.acc.x == 0:
@@ -592,45 +604,70 @@ class World:
 
 
 class Background(pygame.sprite.Sprite):
-    def __init__(self, name=DEFAULT_BG):
+    def __init__(self, filename: str = DEFAULT_BG) -> None:
+        """
+        Создание заднего фона
+
+        :param filename: Название изображения заднего фона
+        :type filename: str
+        """
         super().__init__()
-        self.name = name
-        filename = os.path.join('backgrounds', name)
+        self.name = filename
+        filename = os.path.join('backgrounds', filename)
         if not os.path.isfile(os.path.join('data', filename)):
             raise FileNotFoundError
         self.image = pygame.transform.scale(load_image(filename), (WIDTH, HEIGHT)).convert()
         self.rect = self.image.get_rect(topleft=(0, 0))
 
-    def render(self):
+    def render(self) -> None:
+        """
+        Отрисовка заднего фона
+        """
         surface.blit(self.image, self.rect.topleft)
 
 
 class Tile(pygame.sprite.Sprite):
-    def __init__(self, name, pos, *groups, flag=0):
+    def __init__(self, filename: str, pos: tuple, *groups, flag: int = 0) -> None:
+        """
+        Класс одного блока
+
+        :param filename: Название файла блока
+        :type filename: str
+        :param pos: Позиция блока в уровне
+        :type pos: tuple
+        :param groups: Группы спрайтов
+        :type groups: pygame.sprite.Group
+        :param flag: Флажок для некоторых наследственных классов
+        :type flag: int
+        """
         if flag == 1:
             super(Tile, self).__init__(all_sprites, tiles_group, other_group)
         else:
             super(Tile, self).__init__(all_sprites, tiles_group, *groups)
-            self.image = pygame.transform.scale(load_image(name), (tile_size, tile_size)).convert()
+            self.image = pygame.transform.scale(load_image(filename), (tile_size, tile_size)).convert()
             self.rect = self.image.get_rect(topleft=(pos[0] * tile_size, pos[1] * tile_size))
             self.mask = pygame.mask.from_surface(self.image)
 
 
+# блок земли
 class Land(Tile):
     def __init__(self, pos, *groups):
         super(Land, self).__init__('land.png', pos, *groups)
 
 
+# блок камня
 class Stone1(Tile):
     def __init__(self, pos, *groups):
         super(Stone1, self).__init__('stone1.png', pos, *groups)
 
 
+# блок песка
 class Sand(Tile):
     def __init__(self, pos, *groups):
         super(Sand, self).__init__('sand.png', pos, *groups)
 
 
+# конец уровня - портал
 class Portal(Tile):
     def __init__(self, sheet: pygame.Surface, pos, size):
         super(Portal, self).__init__(0, 0, flag=1)
@@ -699,6 +736,7 @@ class Portal(Tile):
         self.mask = pygame.mask.from_surface(self.image)
 
 
+# класс для обработки уровней
 class Level:
     @staticmethod
     def new_level(data, replay=False):
@@ -754,6 +792,7 @@ class Level:
             f.writelines([background_name + '\n', *data])
 
 
+# класс главного героя
 class Player(pygame.sprite.Sprite):
     def __init__(self, pos, score=0):
         super().__init__(all_sprites)
@@ -1016,7 +1055,9 @@ class Player(pygame.sprite.Sprite):
         return self.score, enemies_killed
 
 
+# родительский класс врагов
 class Enemy(pygame.sprite.Sprite):
+    # количество летучих мышей в уровне
     bats = 0
 
     def __init__(self, sheet: pygame.Surface, direction: int,
