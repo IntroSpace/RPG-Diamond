@@ -54,7 +54,7 @@ WIDTH, HEIGHT = pygame.display.Info().current_w, pygame.display.Info().current_h
 # вычисляем размер одного блока
 tile_size = HEIGHT // 20
 # создаём игровое окно
-surface = pygame.display.set_mode((WIDTH, HEIGHT), pygame.DOUBLEBUF, 16)
+surface = pygame.display.set_mode((WIDTH, HEIGHT), pygame.FULLSCREEN | pygame.DOUBLEBUF, 16)
 surface.set_alpha(None)
 # игровые константы
 ACC = 0.4 * tile_size / 54
@@ -69,7 +69,7 @@ MAX_WORLD_VEL = 5
 pygame.display.set_caption("RPG Diamond")
 # инициализация необходимых шрифтов
 game_font = pygame.font.Font(os.path.abspath('data/fonts/pixeloid_sans.ttf'), 33)
-special_font = pygame.font.Font(os.path.abspath('data/fonts/pixeloid_bold.ttf'), 33)
+special_font = pygame.font.Font(os.path.abspath('data/fonts/pixeloid_bold.ttf'), 23)
 mana_font = pygame.font.Font(os.path.abspath('data/fonts/pixeloid_sans.ttf'), tile_size)
 big_font = pygame.font.Font(os.path.abspath('data/fonts/pixeloid_sans.ttf'), tile_size * 5)
 # переменные для запуска уровней
@@ -916,6 +916,35 @@ class Player(pygame.sprite.Sprite):
                 self.image = run_animation_LEFT[self.move_frame // 2]
 
     def attack(self):
+        reserve_rect = self.rect
+        rx, ry, rw, rh = *self.rect.topleft, *self.rect.size
+        delta = 35 * tile_size / 54
+        self.rect = pygame.Rect(rx - int(delta), ry, rw + int(2 * delta), rh)
+        sprite_list = pygame.sprite.spritecollide(self, tiles_group, False)
+        if sprite_list:
+            self.mask = pygame.mask.from_surface(self.image)
+            for sprite in sprite_list:
+                if isinstance(sprite, Portal):
+                    continue
+                if isinstance(sprite, Coin):
+                    continue
+                rect = sprite.rect
+                if rect.collidepoint(self.rect.midleft):
+                    if self.direction == 'LEFT' and self.attack_frame not in [0, 1]:
+                        reserve_rect.x += 20
+                        self.pos.x += 20
+                    self.attack_frame = 0
+                    self.attacking = False
+                    self.rect = reserve_rect
+                    return
+                if rect.collidepoint(self.rect.midright):
+                    if self.direction == 'LEFT' and self.attack_frame not in [0, 1]:
+                        self.pos.x += 20
+                    self.attacking = False
+                    self.attack_frame = 0
+                    self.rect = reserve_rect
+                    return
+        self.rect = reserve_rect
         if self.attack_frame == 1:
             knife_attack_sound.play()
         if self.attack_frame > 9:
@@ -2057,8 +2086,7 @@ def start_tutorial():
     counter = 400
     stage = 0
     text = None
-    if tutor_animation is None:
-        tutor_animation = TutorialAnimation()
+    tutor_animation = TutorialAnimation()
     try:
         while running:
             player.gravity_check()
